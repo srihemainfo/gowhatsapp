@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -296,41 +296,40 @@
         .media-container {
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            min-width: 220px;
-            max-width: 320px;
+            gap: 4px;
+            min-width: 180px;
+            max-width: 280px;
             margin-bottom: 2px;
         }
 
         .media-placeholder-card {
-            background: rgba(0, 0, 0, 0.035);
-            border: 1px solid rgba(0, 0, 0, 0.08);
+            background: rgba(0, 0, 0, 0.03);
+            border: 1px solid rgba(0, 0, 0, 0.07);
             border-radius: 8px;
-            padding: 12px 14px;
+            padding: 8px 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             text-align: center;
         }
 
         .msg-out .media-placeholder-card {
-            background: rgba(0, 0, 0, 0.03);
-            border-color: rgba(0, 0, 0, 0.07);
+            background: rgba(0, 0, 0, 0.025);
+            border-color: rgba(0, 0, 0, 0.06);
         }
 
         .media-placeholder-info {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            gap: 4px;
+            justify-content: center;
+            gap: 8px;
             width: 100%;
         }
 
         .media-placeholder-icon {
-            font-size: 32px;
+            font-size: 20px;
             line-height: 1;
-            margin-bottom: 2px;
         }
 
         .media-placeholder-title {
@@ -345,15 +344,14 @@
             font-weight: 600;
             color: var(--text-primary);
             word-break: break-all;
-            max-width: 240px;
+            max-width: 200px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
         .media-placeholder-subtitle {
-            font-size: 11.5px;
-            color: var(--text-secondary);
+            display: none;
         }
 
         .media-actions {
@@ -1493,25 +1491,20 @@
 
         } else {
             let icon = '🖼️';
-            let title = 'Image message';
-            let subtitle = 'Media placeholder';
+            let title = 'Image';
 
             if (type === 'video') {
                 icon = '🎥';
-                title = 'Video message';
-                subtitle = 'Video file';
+                title = 'Video';
             } else if (type === 'audio') {
                 icon = '🎵';
-                title = 'Audio message';
-                subtitle = 'Audio file';
+                title = 'Audio';
             } else if (type === 'document') {
                 icon = '📄';
-                title = m.filename ? escapeHtml(m.filename) : 'Document message';
-                subtitle = m.filename ? 'Document file' : 'PDF / Document';
+                title = m.filename ? escapeHtml(m.filename) : 'Document';
             } else if (type === 'sticker') {
                 icon = '🎨';
-                title = 'Sticker message';
-                subtitle = 'Sticker file';
+                title = 'Sticker';
             }
 
             const viewBtnLabel = getViewButtonLabel(type);
@@ -1521,7 +1514,6 @@
                     <div class="media-placeholder-info">
                         <span class="media-placeholder-icon">${icon}</span>
                         <span class="${type === 'document' && m.filename ? 'media-doc-name' : 'media-placeholder-title'}">${title}</span>
-                        <span class="media-placeholder-subtitle">${subtitle}</span>
                     </div>
                     <div class="media-actions">
                         <button type="button" class="media-btn media-btn-primary" onclick="viewMedia('${escapeHtml(waId)}')" ${isLoadingView || isLoadingStore || !waId ? 'disabled' : ''}>
@@ -1630,7 +1622,7 @@
             updateMessageMediaUI(waMessageId);
 
         } catch (err) {
-            console.warn('Media fetch error, attempting direct fallback for media:', err);
+            console.warn('Media fetch error:', err);
             
             if (type === 'image' || type === 'sticker') {
                 const testImg = new Image();
@@ -1646,11 +1638,6 @@
                     updateMessageMediaUI(waMessageId);
                 };
                 testImg.src = viewUrl;
-            } else if (type === 'video' || type === 'audio') {
-                mediaLoaded[waMessageId] = { url: viewUrl, type: type };
-                mediaLoading[waMessageId] = false;
-                delete mediaErrors[waMessageId];
-                updateMessageMediaUI(waMessageId);
             } else {
                 if (docTab) docTab.close();
                 mediaLoading[waMessageId] = false;
@@ -1697,7 +1684,11 @@
 
             if (!res.ok) {
                 console.error('Store Media Failed:', data);
-                mediaErrors[waMessageId] = (data && (data.message || data.error)) || 'Unable to store media. Please try again.';
+                let errMsg = 'Unable to store media. Please try again.';
+                if (data && data.error && typeof data.error === 'string' && !data.error.includes('could not be found')) {
+                    errMsg = data.error;
+                }
+                mediaErrors[waMessageId] = errMsg;
                 mediaLoading[waMessageId] = false;
                 updateMessageMediaUI(waMessageId);
                 return;

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class FBWhAutomationController extends Controller
@@ -609,7 +610,7 @@ class FBWhAutomationController extends Controller
     
             $this->upsertContactFirebase($waId, $name, $text, true, $istTime);
 
-            $this->createMessageFirebase($waId, $waMessageId, [
+            $fbData = [
                 'direction' => 'in',
                 'type' => $type,
                 'text' => $text,
@@ -618,7 +619,21 @@ class FBWhAutomationController extends Controller
                 'wa_message_id' => $waMessageId,
                 'status' => 'received',
                 'timestamp' => $istTime,
-            ]);
+            ];
+
+            $isMedia = in_array($type, ['image', 'video', 'audio', 'document', 'sticker']);
+            if ($isMedia && isset($message[$type])) {
+                $baseUrl = rtrim(env('APP_URL', 'https://gowhatsapp.goride.net.in'), '/');
+                $fbData['media_id'] = $message[$type]['id'] ?? null;
+                $fbData['mime_type'] = $message[$type]['mime_type'] ?? null;
+                $fbData['filename'] = $message[$type]['filename'] ?? null;
+                $fbData['caption'] = $message[$type]['caption'] ?? null;
+                $fbData['media_status'] = 'available';
+                $fbData['media_view_url'] = "{$baseUrl}/api/whatsapp/media/{$waMessageId}/view";
+                $fbData['media_store_url'] = "{$baseUrl}/api/whatsapp/media/{$waMessageId}/store";
+            }
+
+            $this->createMessageFirebase($waId, $waMessageId, $fbData);
         } catch (\Throwable $e) {
             Log::error('Firebase Incoming Error: ' . $e->getMessage());
         }
@@ -948,5 +963,305 @@ class FBWhAutomationController extends Controller
         } catch (\Exception $e) {
             return response()->json(['status' => false, 'message' => 'DB Error: ' . $e->getMessage()], 500);
         }
+    }
+
+    public function viewMedia(Request $request, $waMessageId)
+    {
+        try {
+            if (empty($waMessageId)) {
+                return response()->json(['status' => false, 'error' => 'Message ID is required'], 400);
+            }
+
+            $mediaDetails = $this->getMediaDetails($waMessageId);
+            $mimeType = $mediaDetails['mime_type'] ?? 'application/octet-stream';
+            $ext = $this->getExtensionFromMime($mimeType, $mediaDetails['filename'] ?? null);
+
+            $s3Disk = Storage::disk('s3');
+            $s3Key = "whatsapp_media/{$waMessageId}.{$ext}";
+
+            // 1. Check whether the file already exists in S3
+            if ($s3Disk->exists($s3Key)) {
+                $fileContents = $s3Disk->get($s3Key);
+                $contentType = $s3Disk->mimeType($s3Key) ?: $mimeType;
+                return response($fileContents, 200, [
+                    'Content-Type' => $contentType,
+                    'Cache-Control' => 'public, max-age=86400',
+                ]);
+            }
+
+            if ($s3Disk->exists("whatsapp_media/{$waMessageId}")) {
+                $fileContents = $s3Disk->get("whatsapp_media/{$waMessageId}");
+                return response($fileContents, 200, [
+                    'Content-Type' => $mimeType,
+                    'Cache-Control' => 'public, max-age=86400',
+                ]);
+            }
+
+            // 2. Request fresh WhatsApp media URL and fetch from Meta
+            $mediaId = $mediaDetails['media_id'] ?? null;
+            if (!$mediaId) {
+                if (is_numeric($waMessageId)) {
+                    $mediaId = $waMessageId;
+                } else {
+                    return response()->json(['status' => false, 'error' => 'Media ID not found for this message'], 404);
+                }
+            }
+
+            $waId = $mediaDetails['wa_id'] ?? null;
+            $downloadResult = $this->downloadMediaFromMeta($mediaId, $waId);
+
+            if (!$downloadResult['success']) {
+                return response()->json([
+                    'status' => false,
+                    'error' => $downloadResult['error'] ?? 'Unable to fetch media from Meta'
+                ], 500);
+            }
+
+            $binary = $downloadResult['data'];
+            $finalMime = $downloadResult['mime_type'] ?: $mimeType;
+
+            return response($binary, 200, [
+                'Content-Type' => $finalMime,
+                'Cache-Control' => 'public, max-age=3600',
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('View Media Error: ' . $e->getMessage());
+            return response()->json(['status' => false, 'error' => 'Server error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function storeMedia(Request $request, $waMessageId)
+    {
+        try {
+            if (empty($waMessageId)) {
+                return response()->json(['status' => false, 'error' => 'Message ID is required'], 400);
+            }
+
+            $mediaDetails = $this->getMediaDetails($waMessageId);
+            $mimeType = $mediaDetails['mime_type'] ?? 'application/octet-stream';
+            $ext = $this->getExtensionFromMime($mimeType, $mediaDetails['filename'] ?? null);
+
+            $s3Disk = Storage::disk('s3');
+            $s3Key = "whatsapp_media/{$waMessageId}.{$ext}";
+            $viewUrl = url("/api/whatsapp/media/{$waMessageId}/view");
+
+            // Check if already stored in S3
+            if ($s3Disk->exists($s3Key) || $s3Disk->exists("whatsapp_media/{$waMessageId}")) {
+                $actualKey = $s3Disk->exists($s3Key) ? $s3Key : "whatsapp_media/{$waMessageId}";
+                return response()->json([
+                    'status' => true,
+                    'stored' => true,
+                    'already_stored' => true,
+                    'message' => 'Media already stored in S3',
+                    'media_path' => $actualKey,
+                    'view_url' => $viewUrl,
+                ]);
+            }
+
+            // Download from Meta
+            $mediaId = $mediaDetails['media_id'] ?? null;
+            if (!$mediaId) {
+                if (is_numeric($waMessageId)) {
+                    $mediaId = $waMessageId;
+                } else {
+                    return response()->json(['status' => false, 'error' => 'Media ID not found for this message'], 404);
+                }
+            }
+
+            $waId = $mediaDetails['wa_id'] ?? null;
+            $downloadResult = $this->downloadMediaFromMeta($mediaId, $waId);
+
+            if (!$downloadResult['success']) {
+                return response()->json([
+                    'status' => false,
+                    'error' => $downloadResult['error'] ?? 'Unable to fetch media from Meta'
+                ], 500);
+            }
+
+            $binary = $downloadResult['data'];
+            $finalMime = $downloadResult['mime_type'] ?: $mimeType;
+
+            // Upload to S3
+            $s3Disk->put($s3Key, $binary, [
+                'visibility' => 'public',
+                'ContentType' => $finalMime,
+            ]);
+
+            // Update Firebase message status if waId is available
+            if (!empty($waId)) {
+                $this->updateFirebaseMediaStored($waId, $waMessageId);
+            }
+
+            return response()->json([
+                'status' => true,
+                'stored' => true,
+                'already_stored' => false,
+                'message' => 'Media stored successfully',
+                'media_path' => $s3Key,
+                'view_url' => $viewUrl,
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('Store Media Error: ' . $e->getMessage());
+            return response()->json(['status' => false, 'error' => 'Server error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    private function getMediaDetails($waMessageId)
+    {
+        $details = [
+            'media_id' => null,
+            'mime_type' => null,
+            'filename' => null,
+            'caption' => null,
+            'type' => null,
+            'wa_id' => null,
+        ];
+
+        try {
+            $msg = DB::table('wa_messages')->where('wa_message_id', $waMessageId)->first();
+            if ($msg) {
+                $details['type'] = $msg->type ?? null;
+
+                $conv = DB::table('wa_conversations')->where('id', $msg->conversation_id)->first();
+                if ($conv) {
+                    $details['wa_id'] = $conv->wa_id;
+                }
+
+                if (!empty($msg->raw_payload)) {
+                    $raw = json_decode($msg->raw_payload, true);
+                    $type = $msg->type ?? ($raw['type'] ?? null);
+
+                    if (!empty($type) && isset($raw[$type])) {
+                        $details['media_id'] = $raw[$type]['id'] ?? null;
+                        $details['mime_type'] = $raw[$type]['mime_type'] ?? null;
+                        $details['filename'] = $raw[$type]['filename'] ?? null;
+                        $details['caption'] = $raw[$type]['caption'] ?? null;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('Get Media Details Error: ' . $e->getMessage());
+        }
+
+        return $details;
+    }
+
+    private function downloadMediaFromMeta($mediaId, $waId = null)
+    {
+        try {
+            $version = env('FB_WHATSAPP_VERSION', 'v24.0');
+            $token = env('FB_WHATSAPP_TOKEN');
+
+            if (!empty($waId) && str_starts_with((string)$waId, '44') && env('FB_WHATSAPP_UK_TOKEN')) {
+                $token = env('FB_WHATSAPP_UK_TOKEN');
+            }
+
+            if (!$token) {
+                return ['success' => false, 'error' => 'Missing WhatsApp API token in configuration'];
+            }
+
+            // Step 1: Request fresh media URL from Meta Graph API
+            $metaRes = Http::withToken($token)
+                ->timeout(20)
+                ->get("https://graph.facebook.com/{$version}/{$mediaId}");
+
+            if (!$metaRes->successful()) {
+                Log::error('Meta Media Info Failed', ['media_id' => $mediaId, 'body' => $metaRes->body()]);
+                return ['success' => false, 'error' => 'Failed to obtain media URL from WhatsApp'];
+            }
+
+            $info = $metaRes->json();
+            $downloadUrl = $info['url'] ?? null;
+            $mimeType = $info['mime_type'] ?? null;
+
+            if (!$downloadUrl) {
+                return ['success' => false, 'error' => 'Meta did not return a valid download URL'];
+            }
+
+            // Step 2: Download the binary file (Meta lookaside requires User-Agent)
+            $fileRes = Http::withToken($token)
+                ->withHeaders([
+                    'User-Agent' => 'curl/7.68.0'
+                ])
+                ->timeout(30)
+                ->get($downloadUrl);
+
+            if (!$fileRes->successful()) {
+                Log::error('Meta Media Download Failed', ['status' => $fileRes->status(), 'media_id' => $mediaId]);
+                return ['success' => false, 'error' => 'Failed to download binary file from WhatsApp'];
+            }
+
+            return [
+                'success' => true,
+                'data' => $fileRes->body(),
+                'mime_type' => $mimeType,
+            ];
+
+        } catch (\Throwable $e) {
+            Log::error('Download Media Exception: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    private function updateFirebaseMediaStored($waId, $msgId)
+    {
+        try {
+            $projectId = $this->serviceAccount['project_id'] ?? null;
+            if (!$projectId) return;
+
+            $accessToken = $this->getAccessToken();
+            $safeMsgId = urlencode($msgId);
+            $docPath = "contacts/{$waId}/messages/{$safeMsgId}";
+
+            $url = "https://firestore.googleapis.com/v1/projects/{$projectId}/databases/(default)/documents/{$docPath}?updateMask.fieldPaths=media_status";
+            $payload = json_encode([
+                'fields' => [
+                    'media_status' => ['stringValue' => 'stored']
+                ]
+            ]);
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $accessToken,
+                'Content-Type: application/json'
+            ]);
+            curl_exec($ch);
+            curl_close($ch);
+        } catch (\Throwable $e) {
+            Log::error('Update Firebase Media Stored Error: ' . $e->getMessage());
+        }
+    }
+
+    private function getExtensionFromMime($mimeType, $filename = null)
+    {
+        if ($filename && pathinfo($filename, PATHINFO_EXTENSION)) {
+            return strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        }
+        $map = [
+            'image/jpeg' => 'jpg',
+            'image/jpg'  => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'video/mp4'  => 'mp4',
+            'video/3gpp' => '3gp',
+            'video/quicktime' => 'mov',
+            'audio/ogg'  => 'ogg',
+            'audio/aac'  => 'aac',
+            'audio/mp4'  => 'm4a',
+            'audio/amr'  => 'amr',
+            'audio/mpeg' => 'mp3',
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        ];
+        $cleanMime = strtolower(trim(explode(';', $mimeType ?? '')[0]));
+        return $map[$cleanMime] ?? 'bin';
     }
 }

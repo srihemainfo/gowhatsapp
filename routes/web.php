@@ -18,3 +18,7 @@ Route::match(['get', 'post'], '/whatsapp-webhook', [FBWhAutomationController::cl
 Route::get('/chat-admins', [FBWhAutomationController::class, 'getChatAdmins'])->name('chat.admins');
 Route::get('/whatsapp/fetch-missing-templates', [FBWhAutomationController::class, 'fetchMissingTemplates']);
 Route::post('/whatsapp/sync-selected-templates', [FBWhAutomationController::class, 'syncSelectedTemplates']);
+
+// WhatsApp Media Routes
+Route::get('/api/whatsapp/media/{waMessageId}/view', [FBWhAutomationController::class, 'viewMedia'])->where('waMessageId', '.*');
+Route::post('/api/whatsapp/media/{waMessageId}/store', [FBWhAutomationController::class, 'storeMedia'])->where('waMessageId', '.*');

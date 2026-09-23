@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'get-templates',
             'send-template-message',
             'whatsapp-webhook',
+            'api/whatsapp/media/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
