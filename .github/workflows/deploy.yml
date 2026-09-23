@@ -23,18 +23,19 @@ jobs:
           envs: GH_PAT
           script: |
             set -e
-
-             cd /home/goridenetincwdin/gowhatsapp
-
+            cd /home/goridenetincwdin/gowhatsapp
 
             echo "=== Deployment started at $(date) ==="
 
-            # Authenticate via HTTPS using the passed Personal Access Token
             git remote set-url origin "https://${GH_PAT}@github.com/srihemainfo/gowhatsapp.git"
 
             echo "Pulling latest changes..."
-
             git fetch origin master
             git reset --hard origin/master
+
+            echo "Clearing Laravel caches and rebuilding autoloader..."
+            php artisan optimize:clear || true
+            composer dump-autoload --no-interaction --optimize || true
+            php artisan config:cache || true
 
             echo "=== Deployment finished successfully ==="
