@@ -292,6 +292,239 @@
         .msg-time { font-size: 11px; color: var(--text-secondary); }
         .msg-status svg { width: 20px; height: 18px; margin-left: 2px; }
 
+        /* WhatsApp Media Message Styling */
+        .media-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 220px;
+            max-width: 320px;
+            margin-bottom: 2px;
+        }
+
+        .media-placeholder-card {
+            background: rgba(0, 0, 0, 0.035);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            text-align: center;
+        }
+
+        .msg-out .media-placeholder-card {
+            background: rgba(0, 0, 0, 0.03);
+            border-color: rgba(0, 0, 0, 0.07);
+        }
+
+        .media-placeholder-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            width: 100%;
+        }
+
+        .media-placeholder-icon {
+            font-size: 32px;
+            line-height: 1;
+            margin-bottom: 2px;
+        }
+
+        .media-placeholder-title {
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        .media-doc-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-all;
+            max-width: 240px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .media-placeholder-subtitle {
+            font-size: 11.5px;
+            color: var(--text-secondary);
+        }
+
+        .media-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+            margin-top: 4px;
+        }
+
+        .media-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 14px;
+            font-size: 12.5px;
+            font-weight: 500;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.18s ease;
+            outline: none;
+            user-select: none;
+            font-family: inherit;
+        }
+
+        .media-btn:hover:not(:disabled) {
+            background: var(--hover-chat);
+            border-color: #c0c6c9;
+        }
+
+        .media-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .media-btn-primary {
+            background: var(--accent-green);
+            color: #ffffff;
+            border-color: var(--accent-green);
+        }
+
+        .media-btn-primary:hover:not(:disabled) {
+            background: #1fa855;
+            border-color: #1fa855;
+        }
+
+        .media-btn-store {
+            background: #f0f2f5;
+            color: var(--text-secondary);
+            border-color: #d1d7db;
+        }
+
+        .media-btn-store:hover:not(:disabled) {
+            background: #e2e5e9;
+            color: var(--text-primary);
+        }
+
+        .media-stored-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #166534;
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            padding: 4px 10px;
+            border-radius: 14px;
+        }
+
+        .media-error-text {
+            font-size: 11.5px;
+            color: #dc2626;
+            margin-top: 4px;
+            text-align: center;
+            width: 100%;
+            word-break: break-word;
+        }
+
+        .media-rendered-content {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: flex-start;
+        }
+
+        .chat-media-img {
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 6px;
+            object-fit: contain;
+            cursor: pointer;
+            display: block;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            transition: opacity 0.2s;
+        }
+
+        .chat-media-img:hover {
+            opacity: 0.95;
+        }
+
+        .chat-media-sticker {
+            max-width: 140px;
+            max-height: 140px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .chat-media-video {
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 6px;
+            display: block;
+            background: #000;
+        }
+
+        .chat-media-audio {
+            width: 100%;
+            min-width: 220px;
+            max-width: 280px;
+            display: block;
+            margin: 4px 0;
+        }
+
+        .media-caption {
+            font-size: 13.5px;
+            color: var(--text-primary);
+            line-height: 18px;
+            word-break: break-word;
+            margin-top: 4px;
+            padding: 0 2px;
+        }
+
+        .media-store-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .lightbox-close-btn {
+            position: absolute;
+            top: -16px;
+            right: -16px;
+            background: #ffffff;
+            color: #111b21;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 24px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 1001;
+            transition: transform 0.15s;
+        }
+
+        .lightbox-close-btn:hover {
+            transform: scale(1.1);
+        }
+
         .footer { min-height: 62px; background: var(--header-bg); display: flex; align-items: center; padding: 10px 16px; z-index: 2; gap: 10px; }
         .input-box { flex: 1; background: var(--input-bg); border-radius: 8px; padding: 12px 16px; border: none; outline: none; font-size: 15px; }
         .icon-btn { background: none; border: none; color: #54656f; cursor: pointer; display: flex; align-items: center; }
@@ -571,6 +804,13 @@
     <div class="context-menu-item" onclick="contextMarkUnread()">Mark as unread</div>
 </div>
 
+<div id="mediaLightboxModal" class="modal-overlay" onclick="closeMediaLightbox()">
+    <div style="position: relative; max-width: 90vw; max-height: 90vh; display: flex; align-items: center; justify-content: center;" onclick="event.stopPropagation()">
+        <button type="button" class="lightbox-close-btn" onclick="closeMediaLightbox()" title="Close">&times;</button>
+        <img id="mediaLightboxImg" src="" alt="Full Preview" style="max-width: 90vw; max-height: 85vh; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 24px rgba(0,0,0,0.5);" />
+    </div>
+</div>
+
 <script>
     const firebaseConfig = { 
         apiKey: "{{ env('FIREBASE_API_KEY') }}", 
@@ -596,6 +836,13 @@
     let filterMentionAdmin = null; 
     
     const myAdminUsername = "{{ session('chat_admin_username') }}"; 
+
+    // Media Message State Management
+    const mediaLoading = {};
+    const mediaStored = {};
+    const mediaLoaded = {};
+    const mediaErrors = {};
+    const chatMessagesMap = {};
 
     document.addEventListener('DOMContentLoaded', function() {
         if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
@@ -1102,6 +1349,9 @@
                 let lastDateStr = null;
 
                 messagesData.forEach(m => {
+                    if (m.wa_message_id) {
+                        chatMessagesMap[m.wa_message_id] = m;
+                    }
                     const msgDateObj = parseDate(m.timestamp);
                     const currentDateStr = msgDateObj.toDateString();
 
@@ -1111,10 +1361,17 @@
                     }
 
                     const isOut = m.direction === 'out';
-                    html += `<div class="msg ${isOut?'msg-out':'msg-in'}">
-                        <span>${cleanText(m.text || m.button_text || m.template)}</span>
-                        <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
-                    </div>`;
+                    if (isMediaMessage(m)) {
+                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}" data-wa-msg-id="${escapeHtml(m.wa_message_id || '')}">
+                            ${renderMediaMessageContent(m)}
+                            <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
+                        </div>`;
+                    } else {
+                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}">
+                            <span>${cleanText(m.text || m.button_text || m.template)}</span>
+                            <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
+                        </div>`;
+                    }
                 });
                 
                 const box = document.getElementById('messageDisplay');
@@ -1122,6 +1379,372 @@
                 box.scrollTop = box.scrollHeight;
             });
     }
+
+    // ==========================================
+    // WHATSAPP MEDIA RENDERING & INTEGRATION
+    // ==========================================
+
+    function escapeHtml(text) {
+        if (!text && text !== 0) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function isMediaMessage(m) {
+        if (!m) return false;
+        const type = (m.type || '').toLowerCase();
+        return ['image', 'video', 'audio', 'document', 'sticker'].includes(type);
+    }
+
+    function getMediaViewUrl(m) {
+        if (m.media_view_url) return m.media_view_url;
+        if (m.wa_message_id) return `/api/whatsapp/media/${encodeURIComponent(m.wa_message_id)}/view`;
+        return null;
+    }
+
+    function getMediaStoreUrl(m) {
+        if (m.media_store_url) return m.media_store_url;
+        if (m.wa_message_id) return `/api/whatsapp/media/${encodeURIComponent(m.wa_message_id)}/store`;
+        return null;
+    }
+
+    function getViewButtonLabel(type) {
+        switch ((type || '').toLowerCase()) {
+            case 'image': return 'View Image';
+            case 'video': return 'View Video';
+            case 'audio': return 'Play Audio';
+            case 'document': return 'View';
+            case 'sticker': return 'View Sticker';
+            default: return 'View Media';
+        }
+    }
+
+    function renderMediaMessageContent(m) {
+        const type = (m.type || '').toLowerCase();
+        const waId = m.wa_message_id || '';
+        const isStored = (m.media_status === 'stored') || Boolean(waId && mediaStored[waId]);
+        const isLoadingView = Boolean(waId && mediaLoading[waId] === 'viewing');
+        const isLoadingStore = Boolean(waId && mediaLoading[waId] === 'storing');
+        const loaded = waId ? mediaLoaded[waId] : null;
+        const errorMsg = waId ? mediaErrors[waId] : null;
+        const hasCaption = Boolean(m.caption && String(m.caption).trim());
+
+        let contentHtml = '';
+
+        if (loaded && loaded.url) {
+            if (type === 'image') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <img src="${escapeHtml(loaded.url)}" alt="WhatsApp image" class="chat-media-img" onclick="openMediaLightbox('${escapeHtml(loaded.url)}')" title="Click to enlarge" />
+                    </div>`;
+            } else if (type === 'video') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <video controls preload="metadata" playsinline class="chat-media-video">
+                            <source src="${escapeHtml(loaded.url)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                            Your browser does not support HTML video.
+                        </video>
+                    </div>`;
+            } else if (type === 'audio') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <audio controls preload="metadata" class="chat-media-audio">
+                            <source src="${escapeHtml(loaded.url)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                            Your browser does not support HTML audio.
+                        </audio>
+                    </div>`;
+            } else if (type === 'document') {
+                contentHtml = `
+                    <div class="media-placeholder-card media-doc-card">
+                        <div class="media-placeholder-info">
+                            <span class="media-placeholder-icon">📄</span>
+                            <span class="media-doc-name" title="${escapeHtml(m.filename || 'Document')}">${escapeHtml(m.filename || 'Document message')}</span>
+                            <span class="media-placeholder-subtitle">Document loaded</span>
+                        </div>
+                        <div class="media-actions">
+                            <button type="button" class="media-btn media-btn-primary" onclick="viewMedia('${escapeHtml(waId)}')">
+                                Open Document
+                            </button>
+                        </div>
+                    </div>`;
+            } else if (type === 'sticker') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <img src="${escapeHtml(loaded.url)}" alt="WhatsApp sticker" class="chat-media-sticker" />
+                    </div>`;
+            }
+
+            let storeBar = '';
+            if (isStored) {
+                storeBar = `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
+            } else if (waId) {
+                storeBar = `
+                    <div class="media-store-bar">
+                        <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
+                            ${isLoadingStore ? 'Storing...' : 'Store in S3'}
+                        </button>
+                    </div>`;
+            }
+            contentHtml += storeBar;
+
+        } else {
+            let icon = '🖼️';
+            let title = 'Image message';
+            let subtitle = 'Media placeholder';
+
+            if (type === 'video') {
+                icon = '🎥';
+                title = 'Video message';
+                subtitle = 'Video file';
+            } else if (type === 'audio') {
+                icon = '🎵';
+                title = 'Audio message';
+                subtitle = 'Audio file';
+            } else if (type === 'document') {
+                icon = '📄';
+                title = m.filename ? escapeHtml(m.filename) : 'Document message';
+                subtitle = m.filename ? 'Document file' : 'PDF / Document';
+            } else if (type === 'sticker') {
+                icon = '🎨';
+                title = 'Sticker message';
+                subtitle = 'Sticker file';
+            }
+
+            const viewBtnLabel = getViewButtonLabel(type);
+
+            contentHtml = `
+                <div class="media-placeholder-card">
+                    <div class="media-placeholder-info">
+                        <span class="media-placeholder-icon">${icon}</span>
+                        <span class="${type === 'document' && m.filename ? 'media-doc-name' : 'media-placeholder-title'}">${title}</span>
+                        <span class="media-placeholder-subtitle">${subtitle}</span>
+                    </div>
+                    <div class="media-actions">
+                        <button type="button" class="media-btn media-btn-primary" onclick="viewMedia('${escapeHtml(waId)}')" ${isLoadingView || isLoadingStore || !waId ? 'disabled' : ''}>
+                            ${isLoadingView ? 'Loading...' : viewBtnLabel}
+                        </button>
+                        ${isStored 
+                            ? `<span class="media-stored-badge">✓ Stored</span>`
+                            : (waId ? `
+                                <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore || isLoadingView ? 'disabled' : ''}>
+                                    ${isLoadingStore ? 'Storing...' : 'Store'}
+                                </button>` : '')
+                        }
+                    </div>
+                </div>`;
+        }
+
+        if (errorMsg) {
+            contentHtml += `<div class="media-error-text">${escapeHtml(errorMsg)}</div>`;
+        }
+
+        if (hasCaption) {
+            contentHtml += `<div class="media-caption"><span>${escapeHtml(m.caption)}</span></div>`;
+        }
+
+        return `<div class="media-container" id="media-content-${escapeHtml(waId)}">${contentHtml}</div>`;
+    }
+
+    function updateMessageMediaUI(waMessageId) {
+        if (!waMessageId) return;
+        const el = document.getElementById('media-content-' + waMessageId);
+        const m = chatMessagesMap[waMessageId];
+        if (el && m) {
+            el.outerHTML = renderMediaMessageContent(m);
+        }
+    }
+
+    async function viewMedia(waMessageId) {
+        if (!waMessageId) return;
+        const m = chatMessagesMap[waMessageId];
+        if (!m) return;
+
+        if (mediaLoaded[waMessageId] && mediaLoaded[waMessageId].url) {
+            if ((m.type || '').toLowerCase() === 'document') {
+                window.open(mediaLoaded[waMessageId].url, '_blank');
+            }
+            return;
+        }
+
+        const type = (m.type || 'image').toLowerCase();
+        const viewUrl = getMediaViewUrl(m);
+
+        if (!viewUrl) {
+            mediaErrors[waMessageId] = 'Unable to load media. View URL unavailable.';
+            updateMessageMediaUI(waMessageId);
+            return;
+        }
+
+        mediaLoading[waMessageId] = 'viewing';
+        delete mediaErrors[waMessageId];
+        updateMessageMediaUI(waMessageId);
+
+        let docTab = null;
+        if (type === 'document') {
+            docTab = window.open('about:blank', '_blank');
+        }
+
+        try {
+            const res = await fetch(viewUrl, { credentials: 'same-origin' });
+            
+            if (res.status === 401) {
+                if (docTab) docTab.close();
+                window.location.href = '/chat-login';
+                return;
+            }
+
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const data = await res.json().catch(() => ({}));
+                if (data.status === false) {
+                    throw new Error(data.message || data.error || 'Server error loading media');
+                }
+            }
+
+            const blob = await res.blob();
+            if (blob.size === 0) {
+                throw new Error('Empty response received from media server');
+            }
+
+            const blobUrl = URL.createObjectURL(blob);
+            mediaLoaded[waMessageId] = { url: blobUrl, type: type, filename: m.filename };
+            mediaLoading[waMessageId] = false;
+            delete mediaErrors[waMessageId];
+
+            if (type === 'document') {
+                if (docTab) {
+                    docTab.location.href = blobUrl;
+                } else {
+                    window.open(blobUrl, '_blank');
+                }
+            }
+
+            updateMessageMediaUI(waMessageId);
+
+        } catch (err) {
+            console.warn('Media fetch error, attempting direct fallback for media:', err);
+            
+            if (type === 'image' || type === 'sticker') {
+                const testImg = new Image();
+                testImg.onload = function() {
+                    mediaLoaded[waMessageId] = { url: viewUrl, type: type };
+                    mediaLoading[waMessageId] = false;
+                    delete mediaErrors[waMessageId];
+                    updateMessageMediaUI(waMessageId);
+                };
+                testImg.onerror = function() {
+                    mediaLoading[waMessageId] = false;
+                    mediaErrors[waMessageId] = 'Unable to load media. Please try again.';
+                    updateMessageMediaUI(waMessageId);
+                };
+                testImg.src = viewUrl;
+            } else if (type === 'video' || type === 'audio') {
+                mediaLoaded[waMessageId] = { url: viewUrl, type: type };
+                mediaLoading[waMessageId] = false;
+                delete mediaErrors[waMessageId];
+                updateMessageMediaUI(waMessageId);
+            } else {
+                if (docTab) docTab.close();
+                mediaLoading[waMessageId] = false;
+                mediaErrors[waMessageId] = 'Unable to load media. Please try again.';
+                updateMessageMediaUI(waMessageId);
+            }
+        }
+    }
+
+    async function storeMedia(waMessageId) {
+        if (!waMessageId) return;
+        const m = chatMessagesMap[waMessageId];
+        if (!m) return;
+
+        const storeUrl = getMediaStoreUrl(m);
+        if (!storeUrl) {
+            mediaErrors[waMessageId] = 'Unable to store media. Store URL unavailable.';
+            updateMessageMediaUI(waMessageId);
+            return;
+        }
+
+        mediaLoading[waMessageId] = 'storing';
+        delete mediaErrors[waMessageId];
+        updateMessageMediaUI(waMessageId);
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const res = await fetch(storeUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                credentials: 'same-origin'
+            });
+
+            if (res.status === 401) {
+                window.location.href = '/chat-login';
+                return;
+            }
+
+            const data = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                console.error('Store Media Failed:', data);
+                mediaErrors[waMessageId] = (data && (data.message || data.error)) || 'Unable to store media. Please try again.';
+                mediaLoading[waMessageId] = false;
+                updateMessageMediaUI(waMessageId);
+                return;
+            }
+
+            if (data && (data.status === true || data.stored === true || data.already_stored === true)) {
+                mediaStored[waMessageId] = true;
+                mediaLoading[waMessageId] = false;
+                delete mediaErrors[waMessageId];
+                if (data.view_url) {
+                    m.media_view_url = data.view_url;
+                }
+                updateMessageMediaUI(waMessageId);
+            } else {
+                mediaErrors[waMessageId] = (data && (data.message || data.error)) || 'Unable to store media. Please try again.';
+                mediaLoading[waMessageId] = false;
+                updateMessageMediaUI(waMessageId);
+            }
+        } catch (err) {
+            console.error('Store Media Error:', err);
+            mediaErrors[waMessageId] = 'Unable to store media. Please try again.';
+            mediaLoading[waMessageId] = false;
+            updateMessageMediaUI(waMessageId);
+        }
+    }
+
+    function openMediaLightbox(url) {
+        const modal = document.getElementById('mediaLightboxModal');
+        const img = document.getElementById('mediaLightboxImg');
+        if (modal && img && url) {
+            img.src = url;
+            modal.style.display = 'flex';
+        }
+    }
+
+    function closeMediaLightbox() {
+        const modal = document.getElementById('mediaLightboxModal');
+        const img = document.getElementById('mediaLightboxImg');
+        if (modal) modal.style.display = 'none';
+        if (img) img.src = '';
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeMediaLightbox();
+        }
+    });
 
     function showContextMenu(e, contactId) {
         e.preventDefault(); 
