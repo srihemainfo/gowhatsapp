@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Whatsapp</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="shortcut icon" href="https://www.goride.net.in/public/goride/img/Go-Ride-fav-icon.webp">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        @keyframes spinIcon {
+        100% { transform: rotate(360deg); }
+        }
+        .spin-anim {
+            animation: spinIcon 1s linear infinite;
+            color: var(--accent-green) !important;
+        }
+        :root {
+            --app-bg: #d1d7db;
+            --chat-bg: #efeae2;
+            --sidebar-bg: #ffffff;
+            --header-bg: #f0f2f5;
+            --active-chat: #f0f2f5;
+            --hover-chat: #f5f6f6;
+            --incoming-msg: #ffffff;
+            --outgoing-msg: #d9fdd3;
+            --text-primary: #111b21;
+            --text-secondary: #667781;
+            --accent-green: #25d366;
+            --border: #e9edef;
+            --input-bg: #ffffff;
+            --blue-tick: #007bff;
+            --grey-tick: #54656f;
+            --search-bg: #f0f2f5;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--app-bg);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            background: var(--sidebar-bg);
+            max-width: 1600px;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 30%;
+            min-width: 350px;
+            display: flex;
+            flex-direction: column;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            z-index: 2;
+        }
+
+        .header {
+            height: 60px;
+            background: var(--header-bg);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand-logo { height: 28px; width: auto; }
+
+        .search-container {
+            padding: 8px 12px;
+            background: #fff;
+        }
+
+        .search-wrapper {
+            background: var(--search-bg);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+        }
+
+        .search-input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            padding: 8px;
+            font-size: 14px;
+            outline: none;
+            color: var(--text-primary);
+        }
+
+        .filter-container {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px 8px 12px;
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .filter-btn {
+            padding: 5px 14px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--search-bg);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 12.5px;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        
+        .filter-btn:hover { background: var(--hover-chat); }
+        .filter-btn.active { background: var(--text-secondary); color: #fff; border-color: var(--text-secondary); }
+        .filter-btn.active-green { background: var(--accent-green); color: #fff; border-color: var(--accent-green); }
+
+        .date-filter-wrapper { position: relative; font-family: inherit; }
+        .date-filter-display { 
+            display: flex; align-items: center; justify-content: space-between; gap: 4px;
+            padding: 5px 10px; border-radius: 16px; border: 1px solid var(--border);
+            background: var(--search-bg); color: var(--text-secondary); font-weight: 500;
+            font-size: 12.5px; cursor: pointer; white-space: nowrap; transition: 0.2s;
+        }
+        .date-filter-display:hover { background: var(--hover-chat); }
+        .date-filter-display.active { background: var(--text-secondary); color: #fff; border-color: var(--text-secondary); }
+        
+        .clear-date { 
+            font-size: 14px; font-weight: bold; cursor: pointer; 
+            padding: 0 4px; border-radius: 50%;
+        }
+        .clear-date:hover { background: rgba(0,0,0,0.1); color: #d32f2f; }
+        .date-filter-display.active .clear-date { color: #fff; }
+        .date-filter-display.active .clear-date:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        .date-filter-menu {
+            position: absolute; top: calc(100% + 5px); right: 0; background: #fff;
+            border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(11,20,26,0.15);
+            z-index: 100; min-width: 170px; max-height: calc(100vh - 160px); overflow-y: auto; overflow-x: hidden;
+        }
+        .preset-option { 
+            padding: 10px 14px; font-size: 13.5px; color: var(--text-primary); 
+            cursor: pointer; border-bottom: 1px solid var(--header-bg); 
+        }
+        .preset-option:hover { background: var(--hover-chat); }
+        .preset-option:last-child { border-bottom: none; }
+        
+        .custom-date-section { 
+            padding: 12px; display: flex; flex-direction: column; gap: 8px; 
+            background: var(--search-bg); border-top: 1px solid var(--border);
+        }
+        .custom-date-section label { font-size: 11px; color: var(--text-secondary); font-weight: bold; text-transform: uppercase;}
+        .custom-date-input { 
+            width: 100%; border: 1px solid var(--border); padding: 6px; 
+            border-radius: 4px; font-size: 12.5px; font-family: inherit; color: var(--text-primary);
+        }
+        .apply-custom-btn { 
+            background: var(--accent-green); color: #fff; border: none; border-radius: 4px; 
+            padding: 8px; cursor: pointer; font-size: 13px; font-weight: 500; margin-top: 4px;
+        }
+        .apply-custom-btn:hover { background: #1fa855; }
+
+        .contact-list { flex: 1; overflow-y: auto; }
+
+        .contact {
+            display: flex;
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+            position: relative;
+        }
+
+        .contact:hover { background: var(--hover-chat); }
+        .contact.active { background: var(--active-chat); }
+        .contact-details { margin-left: 15px; flex: 1; overflow: hidden; }
+        .contact-top { display: flex; justify-content: space-between; margin-bottom: 3px; align-items: center; }
+        
+        .contact-name { font-size: 16px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex:1;}
+        .contact-time { font-size: 12px; color: var(--text-secondary); white-space: nowrap; margin-left: 5px; }
+        .contact-bottom { display: flex; justify-content: space-between; align-items: center; }
+        .contact-last-msg { font-size: 13px; color: var(--text-secondary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-right: 10px; flex:1;}
+
+        .unread-badge {
+            background-color: var(--accent-green);
+            color: white;
+            border-radius: 12px;
+            min-width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 0 6px;
+        }
+        
+        .mention-badge {
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            font-size: 10px;
+            padding: 2px 4px;
+            margin-right: 5px;
+            font-weight: bold;
+        }
+
+        .contact-more {
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: none;
+            margin-left: 5px;
+        }
+
+        .contact:hover .contact-more { display: block; }
+        .contact-more:hover { background: var(--border); color: var(--text-primary); }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--chat-bg);
+            position: relative;
+        }
+
+        .chat-area-bg::before {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+            opacity: 0.06; pointer-events: none; z-index: 0;
+        }
+
+        .chat-header-info { display: flex; align-items: center; flex: 1; overflow: hidden; }
+        .chat-header-text { margin-left: 15px; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .chat-header-name-wrapper { display: flex; align-items: center; gap: 8px; }
+        .chat-header-name { color: var(--text-primary); font-size: 16px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
+        .edit-icon { color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; }
+        .edit-icon:hover { color: var(--text-primary); }
+        
+        .chat-header-status { font-size: 13px; color: var(--text-secondary); }
+
+        .profile-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .mobile-back { display: none; margin-right: 10px; cursor: pointer; color: #54656f; background: none; border: none; }
+
+        .highlight { background-color: #ffeb3b; color: #000; }
+
+        .messages-container { flex: 1; padding: 20px 8%; overflow-y: auto; display: flex; flex-direction: column; z-index: 1; scroll-behavior: smooth; }
+
+        .date-divider {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+            z-index: 1;
+        }
+
+        .date-divider span {
+            background-color: #ffffff;
+            color: #54656f;
+            font-size: 12.5px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 0.5px rgba(11,20,26,.13);
+            text-transform: uppercase;
+            display: inline-block;
+        }
+
+        .msg {
+            max-width: 65%; padding: 6px 7px 8px 9px; margin-bottom: 12px; font-size: 14.2px;
+            position: relative; color: var(--text-primary); line-height: 19px; display: inline-flex;
+            flex-direction: column; word-wrap: break-word; box-shadow: 0 1px 0.5px rgba(11,20,26,.13);
+        }
+
+        .msg span { white-space: pre-wrap; word-break: break-word; }
+
+        .msg-in { background: var(--incoming-msg); align-self: flex-start; border-radius: 0 8px 8px 8px; }
+        .msg-out { background: var(--outgoing-msg); align-self: flex-end; border-radius: 8px 0 8px 8px; }
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 2px; float: right; margin-left: 10px; }
+        .msg-time { font-size: 11px; color: var(--text-secondary); }
+        .msg-status svg { width: 20px; height: 18px; margin-left: 2px; }
+
+        .footer { min-height: 62px; background: var(--header-bg); display: flex; align-items: center; padding: 10px 16px; z-index: 2; gap: 10px; }
+        .input-box { flex: 1; background: var(--input-bg); border-radius: 8px; padding: 12px 16px; border: none; outline: none; font-size: 15px; }
+        .icon-btn { background: none; border: none; color: #54656f; cursor: pointer; display: flex; align-items: center; }
+
+        .default-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: #667781;
+            background-color: var(--header-bg);
+            z-index: 10;
+        }
+
+        .active-chat-screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(11, 20, 26, 0.4);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 24px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24);
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-title { font-size: 16px; color: var(--text-primary); font-weight: 500; margin-bottom: 20px; }
+
+        .modal-input {
+            width: 100%; border: none; border-bottom: 2px solid var(--accent-green);
+            padding: 8px 0; font-size: 15px; outline: none; margin-bottom: 24px;
+            color: var(--text-primary); background: transparent;
+        }
+
+        .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: auto; padding-top: 20px; }
+
+        .modal-btn { border: none; padding: 10px 24px; border-radius: 24px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+        .cancel-btn { background: transparent; color: var(--accent-green); border: 1px solid var(--border); }
+        .cancel-btn:hover { background: var(--hover-chat); }
+        .save-btn { background: var(--accent-green); color: white; }
+        .save-btn:hover { background: #1fa855; }
+        
+        .template-item { text-align: left; width: 100%; border: 1px solid #ccc; padding: 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; background: #fff; font-size: 14px; color: var(--text-primary); transition: 0.2s; }
+        .template-item:hover { background: var(--hover-chat); border-color: var(--accent-green); }
+        .template-list-container { overflow-y: auto; flex: 1; }
+
+        .context-menu {
+            position: absolute;
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(11,20,26,.15);
+            border-radius: 4px;
+            z-index: 2000;
+            padding: 8px 0;
+            min-width: 160px;
+        }
+        .context-menu-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 14.5px;
+            color: var(--text-primary);
+            transition: background 0.2s;
+        }
+        .context-menu-item:hover {
+            background: var(--hover-chat);
+        }
+
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border-left-color: var(--accent-green);
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; min-width: 100%; }
+            .chat-area { display: none; width: 100%; }
+            .mobile-back { display: block; }
+            .app-container.show-chat .sidebar { display: none !important; }
+            .app-container.show-chat .chat-area { display: flex !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container" id="appContainer">
+    <div class="sidebar" id="sidebar">
+        <div class="header">
+            <img src="https://www.goride.run/goride/img/logo-light.png" class="brand-logo" alt="GoRide" referrerpolicy="no-referrer">
+            <a href="{{ route('chat.logout') }}" style="margin-left: auto; color: #54656f;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16 17v-3H9v-4h7V7l5 5-5 5M14 2a2 2 0 012 2v2h-2V4H5v16h9v-2h2v2a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2h9z"></path></svg>
+            </a>
+        </div>
+        
+        <div class="search-container">
+            <div class="search-wrapper">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="#54656f"><path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.808 0a3.605 3.605 0 1 1 0-7.21 3.605 3.605 0 0 1 0 7.21z"></path></svg>
+                <input type="text" class="search-input" id="sidebarSearch" placeholder="Search by name or phone" onkeyup="filterContacts()">
+            </div>
+        </div>
+        
+        <div class="filter-container">
+            <button class="filter-btn active" id="btnFilterAll" onclick="setFilter('all')">All</button>
+            <button class="filter-btn" id="btnFilterUnread" onclick="setFilter('unread')">Unread</button>
+            
+            <div class="date-filter-wrapper" id="mentionFilterWrapperId">
+                <div class="date-filter-display" id="mentionFilterDisplayId" onclick="toggleMentionMenu()">
+                    <span id="mentionFilterText">@ Mentions</span>
+                    <span class="clear-date" onclick="clearMentionFilter(event)" id="clearMentionBtn" style="display:none;" title="Clear Mention">&times;</span>
+                </div>
+                <div class="date-filter-menu" id="mentionFilterMenu" style="display:none; left:0; right:auto;">
+                    <div id="mentionFilterAdminList"><div class="preset-option">Loading...</div></div>
+                </div>
+            </div>
+
+            <div class="date-filter-wrapper" id="dateFilterWrapperId" style="margin-left: auto;">
+                <div class="date-filter-display" id="dateFilterDisplayId" onclick="toggleDateMenu()">
+                    <span id="dateFilterText">All Dates</span>
+                    <span class="clear-date" onclick="clearDateFilter(event)" id="clearDateBtn" style="display:none;" title="Clear Date">&times;</span>
+                </div>
+                <div class="date-filter-menu" id="dateFilterMenu" style="display:none;">
+                    <div class="preset-option" onclick="applyDatePreset('today')">Today</div>
+                    <div class="preset-option" onclick="applyDatePreset('yesterday')">Yesterday</div>
+                    <div class="preset-option" onclick="applyDatePreset('last7')">Last 7 Days</div>
+                    <div class="preset-option" onclick="applyDatePreset('thisMonth')">This Month</div>
+                    <div class="preset-option" onclick="applyDatePreset('lastMonth')">Last Month</div>
+                    <div class="preset-option" onclick="applyDatePreset('thisYear')">This Year</div>
+                    <div class="preset-option" onclick="applyDatePreset('lastYear')">Last Year</div>
+                    <div class="preset-option" onclick="toggleCustomDate()">Custom Range...</div>
+                    
+                    <div class="custom-date-section" id="customDateSection" style="display:none;">
+                        <div>
+                            <label>Start Date</label>
+                            <input type="date" id="customStartDate" class="custom-date-input">
+                        </div>
+                        <div>
+                            <label>End Date</label>
+                            <input type="date" id="customEndDate" class="custom-date-input">
+                        </div>
+                        <button class="apply-custom-btn" onclick="applyCustomDate()">Apply Custom Range</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="contactsLoader" style="display: none; padding: 20px; text-align: center;">
+            <div class="spinner"></div>
+            <div style="margin-top: 10px; color: var(--text-secondary); font-size: 13px;">Loading chats...</div>
+        </div>
+        <div class="contact-list" id="contactList"></div>
+    </div>
+
+    <div class="chat-area chat-area-bg" id="chatMain">
+        
+        <div class="default-screen" id="defaultScreen">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px; opacity:0.4;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                <line x1="15" y1="9" x2="15.01" y2="9"></line>
+            </svg>
+            <h2 style="font-weight: 300; font-size: 28px;">GoRide Chat</h2>
+            <p style="margin-top: 15px; font-size: 14px;">Select a contact from the left menu to start messaging.</p>
+        </div>
+
+        <div class="active-chat-screen" id="activeChatScreen">
+            <div class="header">
+                <div class="chat-header-info">
+                    <button class="mobile-back" onclick="goBack()">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 20.016l-8.016-8.016 8.016-8.016 1.406 1.406-5.578 5.625h14.156v1.969h-14.156l5.578 5.625z"></path></svg>
+                    </button>
+                    <img src="" class="profile-img" id="headerImg">
+                    <div class="chat-header-text">
+                        <div class="chat-header-name-wrapper">
+                            <span class="chat-header-name" id="currentChatName"></span>
+                            <span class="edit-icon" onclick="openEditModal()" title="Edit Contact Name">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"></path></svg>
+                            </span>
+                            <span class="edit-icon" style="margin-left: 10px;" onclick="headerMarkUnread()" title="Mark as Unread">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                            </span>
+                        </div>
+                        <div class="chat-header-status" id="chatStatus"></div>
+                    </div>
+                </div>
+                <div class="search-wrapper" style="width: 200px; margin-left: 10px;">
+                    <input type="text" class="search-input" id="chatSearch" placeholder="Search in chat" onkeyup="searchMessages()">
+                </div>
+            </div>
+
+            <div class="messages-container" id="messageDisplay"></div>
+
+            <div class="footer">
+                <button class="icon-btn" onclick="openTemplateModal()" title="Send Template">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"></path></svg>
+                </button>
+                <textarea class="input-box" id="messageInput" placeholder="Type a message" rows="1" style="resize: none; overflow-y: auto; max-height: 120px; font-family: inherit;"></textarea>
+                <button class="icon-btn" id="sendBtn" onclick="sendMessage()">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="editNameModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 class="modal-title">Edit Contact Name</h3>
+        <input type="text" id="editNameInput" class="modal-input" placeholder="Contact Name" autocomplete="off">
+        <div class="modal-actions">
+            <button class="modal-btn cancel-btn" onclick="closeEditModal()">Cancel</button>
+            <button class="modal-btn save-btn" onclick="saveContactName()">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="templateModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 class="modal-title" style="margin-bottom: 0;">Select Template</h3>
+            <button class="icon-btn" id="syncIconBtn" onclick="syncTemplates()" title="Sync Templates" style="color: var(--text-secondary); background: var(--search-bg); padding: 6px; border-radius: 50%;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="template-list-container" id="templateList"></div>
+        <div id="syncStatus" style="font-size: 13px; font-weight: 500; text-align: center; margin-top: 10px; display: none;"></div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel-btn" onclick="closeTemplateModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="mentionModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 class="modal-title">Mention People</h3>
+        <div class="template-list-container" id="adminList">Loading...</div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel-btn" onclick="closeMentionModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="contextMenu" class="context-menu" style="display: none;">
+    <div class="context-menu-item" onclick="contextMarkUnread()">Mark as unread</div>
+</div>
+
+<script>
+    const firebaseConfig = { 
+        apiKey: "{{ env('FIREBASE_API_KEY') }}", 
+        authDomain: "{{ env('FIREBASE_AUTH_DOMAIN') }}", 
+        projectId: "{{ env('FIREBASE_PROJECT_ID') }}" 
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    
+    let activeChatId = null;
+    let allContacts = [];
+    let messageListenerUnsubscribe = null;
+    let notifiedTimestamps = {}; 
+    let contextMenuTargetId = null;
+    let isInitialLoad = true;
+    let contactsListenerUnsubscribe = null;
+    
+    let currentFilter = 'all'; 
+    let filterStartDate = null;
+    let filterEndDate = null;
+    let filterMentionAdmin = null; 
+    
+    const myAdminUsername = "{{ session('chat_admin_username') }}"; 
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+        }
+        setupContactsListener();
+    });
+
+    document.addEventListener('click', function(e) {
+        const dateWrapper = document.getElementById('dateFilterWrapperId');
+        const dateMenu = document.getElementById('dateFilterMenu');
+        if (dateWrapper && !dateWrapper.contains(e.target)) {
+            dateMenu.style.display = 'none';
+            document.getElementById('customDateSection').style.display = 'none';
+        }
+        
+        const mentionWrapper = document.getElementById('mentionFilterWrapperId');
+        const mentionMenu = document.getElementById('mentionFilterMenu');
+        if (mentionWrapper && !mentionWrapper.contains(e.target)) {
+            mentionMenu.style.display = 'none';
+        }
+
+        const contextMenu = document.getElementById('contextMenu');
+        if (contextMenu && contextMenu.style.display === 'block') {
+            contextMenu.style.display = 'none';
+        }
+    });
+
+    async function toggleMentionMenu() {
+        const menu = document.getElementById('mentionFilterMenu');
+        if (menu.style.display === 'none') {
+            menu.style.display = 'block';
+            if(document.getElementById('mentionFilterAdminList').innerHTML.includes('Loading...')) {
+                try {
+                    const res = await fetch("{{ route('chat.admins') }}");
+                    const json = await res.json();
+                    let html = '';
+                    if (json.status && json.data) {
+                        html += `<div class="preset-option" onclick="applyMentionFilter('${myAdminUsername}')">Me (${myAdminUsername})</div>`;
+                        json.data.forEach(admin => {
+                            if(admin.username !== myAdminUsername) {
+                                html += `<div class="preset-option" onclick="applyMentionFilter('${admin.username}')">${admin.username}</div>`;
+                            }
+                        });
+                    } else {
+                        html = '<div class="preset-option" style="color:var(--text-secondary);">Error loading admins.</div>';
+                    }
+                    document.getElementById('mentionFilterAdminList').innerHTML = html;
+                } catch (error) {
+                    document.getElementById('mentionFilterAdminList').innerHTML = '<div class="preset-option" style="color:red;">Error loading admins.</div>';
+                }
+            }
+        } else {
+            menu.style.display = 'none';
+        }
+    }
+
+    function applyMentionFilter(username) {
+        filterMentionAdmin = username;
+        document.getElementById('mentionFilterText').innerText = `${username}`;
+        document.getElementById('clearMentionBtn').style.display = 'inline';
+        document.getElementById('mentionFilterMenu').style.display = 'none';
+        document.getElementById('mentionFilterDisplayId').classList.add('active');
+        filterContacts();
+    }
+
+    function clearMentionFilter(e) {
+        if(e) e.stopPropagation();
+        filterMentionAdmin = null;
+        document.getElementById('mentionFilterText').innerText = "@ Mentions";
+        document.getElementById('clearMentionBtn').style.display = 'none';
+        document.getElementById('mentionFilterMenu').style.display = 'none';
+        document.getElementById('mentionFilterDisplayId').classList.remove('active');
+        filterContacts();
+    }
+
+    function toggleDateMenu() {
+        const menu = document.getElementById('dateFilterMenu');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function clearDateFilter(e) {
+        if(e) e.stopPropagation();
+        filterStartDate = null;
+        filterEndDate = null;
+        document.getElementById('dateFilterText').innerText = "All Dates";
+        document.getElementById('clearDateBtn').style.display = 'none';
+        document.getElementById('dateFilterMenu').style.display = 'none';
+        document.getElementById('customDateSection').style.display = 'none';
+        document.getElementById('dateFilterDisplayId').classList.remove('active');
+        document.getElementById('customStartDate').value = '';
+        document.getElementById('customEndDate').value = '';
+        setupContactsListener();
+    }
+
+    function applyDatePreset(preset) {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const endOfToday = new Date(today);
+        endOfToday.setHours(23,59,59,999);
+
+        let start = new Date(today);
+        let end = new Date(endOfToday);
+        let label = "";
+
+        if (preset === 'today') {
+            label = "Today";
+        } else if (preset === 'yesterday') {
+            start.setDate(today.getDate() - 1);
+            end = new Date(start);
+            end.setHours(23,59,59,999);
+            label = "Yesterday";
+        } else if (preset === 'last7') {
+            start.setDate(today.getDate() - 6);
+            label = "Last 7 Days";
+        } else if (preset === 'thisMonth') {
+            start.setDate(1);
+            label = "This Month";
+        } else if (preset === 'lastMonth') {
+            start.setMonth(today.getMonth() - 1);
+            start.setDate(1);
+            end = new Date(start);
+            end.setMonth(end.getMonth() + 1);
+            end.setDate(0); 
+            end.setHours(23,59,59,999);
+            label = "Last Month";
+        } else if (preset === 'thisYear') {
+            start.setMonth(0);
+            start.setDate(1);
+            label = "This Year";
+        } else if (preset === 'lastYear') {
+            start.setFullYear(today.getFullYear() - 1);
+            start.setMonth(0);
+            start.setDate(1);
+            end = new Date(start);
+            end.setFullYear(end.getFullYear() + 1);
+            end.setMonth(0);
+            end.setDate(0);
+            end.setHours(23,59,59,999);
+            label = "Last Year";
+        }
+
+        filterStartDate = start;
+        filterEndDate = end;
+        
+        document.getElementById('dateFilterText').innerText = label;
+        document.getElementById('clearDateBtn').style.display = 'inline';
+        document.getElementById('dateFilterMenu').style.display = 'none';
+        document.getElementById('customDateSection').style.display = 'none';
+        document.getElementById('dateFilterDisplayId').classList.add('active');
+        setupContactsListener();
+    }
+
+    function toggleCustomDate() {
+        const sec = document.getElementById('customDateSection');
+        const menu = document.getElementById('dateFilterMenu');
+        if (sec.style.display === 'none') {
+            sec.style.display = 'flex';
+            setTimeout(() => {
+                menu.scrollTo({ top: menu.scrollHeight, behavior: 'smooth' });
+            }, 50);
+        } else {
+            sec.style.display = 'none';
+        }
+    }
+
+    function applyCustomDate() {
+        const startVal = document.getElementById('customStartDate').value;
+        const endVal = document.getElementById('customEndDate').value;
+        
+        if (!startVal || !endVal) {
+            alert("Please select both start and end dates.");
+            return;
+        }
+        
+        filterStartDate = new Date(startVal);
+        filterStartDate.setHours(0,0,0,0);
+        
+        filterEndDate = new Date(endVal);
+        filterEndDate.setHours(23,59,59,999);
+
+        const formatOptions = { month: 'short', day: 'numeric' };
+        const sLabel = filterStartDate.toLocaleDateString(undefined, formatOptions);
+        const eLabel = filterEndDate.toLocaleDateString(undefined, formatOptions);
+
+        document.getElementById('dateFilterText').innerText = `${sLabel} - ${eLabel}`;
+        document.getElementById('clearDateBtn').style.display = 'inline';
+        document.getElementById('dateFilterMenu').style.display = 'none';
+        document.getElementById('customDateSection').style.display = 'none';
+        document.getElementById('dateFilterDisplayId').classList.add('active');
+        setupContactsListener();
+    }
+
+    function parseDate(dateInput) {
+        if (!dateInput) return new Date();
+        if (typeof dateInput === 'object' && typeof dateInput.toDate === 'function') return dateInput.toDate();
+        let d = new Date(dateInput.toString().replace(' ', 'T'));
+        if (isNaN(d)) d = new Date(dateInput);
+        return d;
+    }
+
+    function formatTime(dateInput) {
+        let d = parseDate(dateInput);
+        if (isNaN(d)) return '';
+        let h = d.getHours(), m = d.getMinutes(), a = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return h + ':' + (m < 10 ? '0' + m : m) + ' ' + a;
+    }
+
+    function getWhatsAppDateLabel(d) {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (d.toDateString() === today.toDateString()) return 'TODAY';
+        if (d.toDateString() === yesterday.toDateString()) return 'YESTERDAY';
+
+        return d.toLocaleDateString('en-GB');
+    }
+
+    function formatSidebarDate(dateInput) {
+        if (!dateInput) return '';
+        let d = parseDate(dateInput);
+        if (isNaN(d)) return '';
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (d.toDateString() === today.toDateString()) return formatTime(d);
+        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString('en-GB');
+    }
+
+    function getTickSVG(status) {
+        const grey = 'var(--grey-tick)', blue = 'var(--blue-tick)';
+        if (status === 'sent') return `<svg viewBox="0 0 24 24"><path fill="${grey}" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+        if (status === 'delivered' || status === 'read') return `<svg viewBox="0 0 24 24"><path fill="${status==='read'?blue:grey}" d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/></svg>`;
+        return `<svg viewBox="0 0 24 24" style="width:15px;height:15px;"><path fill="${grey}" d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
+    }
+
+    function cleanText(t) { return t ? t.replace(/\[|\]/g, '').replace(/ template$/i, '').trim() : 'Media'; }
+
+    function setFilter(type) {
+        currentFilter = type; 
+        document.getElementById('btnFilterAll').classList.remove('active');
+        document.getElementById('btnFilterUnread').classList.remove('active-green');
+        
+        if(type === 'all') document.getElementById('btnFilterAll').classList.add('active');
+        if(type === 'unread') document.getElementById('btnFilterUnread').classList.add('active-green');
+        
+        filterContacts();
+    }
+
+    function filterContacts() {
+        const query = document.getElementById('sidebarSearch').value.toLowerCase();
+        renderContacts(query);
+    }
+
+    function searchMessages() {
+        const query = document.getElementById('chatSearch').value.toLowerCase();
+        const messages = document.querySelectorAll('.msg span');
+        let firstMatch = null;
+
+        messages.forEach(msg => {
+            const text = msg.innerText.toLowerCase();
+            if (query && text.includes(query)) {
+                msg.classList.add('highlight');
+                if (!firstMatch) firstMatch = msg;
+            } else {
+                msg.classList.remove('highlight');
+            }
+        });
+
+        if (firstMatch) firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function toDbDateString(date) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function setupContactsListener() {
+        if (contactsListenerUnsubscribe) {
+            contactsListenerUnsubscribe();
+        }
+        
+        document.getElementById('contactList').innerHTML = ''; 
+        document.getElementById('contactsLoader').style.display = 'block';
+
+        isInitialLoad = true;
+        let query = db.collection('contacts');
+
+        if (filterStartDate && filterEndDate) {
+            query = query.where('last_message_at', '>=', toDbDateString(filterStartDate))
+                         .where('last_message_at', '<=', toDbDateString(filterEndDate));
+        }
+
+        query = query.orderBy('last_message_at', 'desc').limit(100);
+
+        contactsListenerUnsubscribe = query.onSnapshot(snap => {
+            document.getElementById('contactsLoader').style.display = 'none';
+            
+            allContacts = [];
+            
+            snap.docChanges().forEach(change => {
+                const data = change.doc.data();
+                const unreadCount = data.unread_count || 0;
+
+                if (change.type === 'added' && isInitialLoad) {
+                    notifiedTimestamps[change.doc.id] = data.last_message_at;
+                }
+                
+                if (change.type === 'modified' || change.type === 'added') {
+                    if (change.doc.id === activeChatId) {
+                        if (unreadCount > 0) {
+                            db.collection('contacts').doc(activeChatId).update({ unread_count: 0 }).catch(()=>{});
+                        }
+                    } else {
+                        if (unreadCount > 0 && notifiedTimestamps[change.doc.id] !== data.last_message_at && !isInitialLoad) {
+                            notifiedTimestamps[change.doc.id] = data.last_message_at;
+                            
+                            if ("Notification" in window && Notification.permission === "granted") {
+                                const title = (data.name && data.name !== 'null') ? data.name : change.doc.id;
+                                new Notification(title, {
+                                    body: cleanText(data.last_message),
+                                    icon: "https://www.goride.run/goride/img/logo-light.png"
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+
+            isInitialLoad = false;
+
+            snap.forEach(doc => {
+                const d = doc.data();
+                allContacts.push({ 
+                    id: doc.id, 
+                    name: (d.name && d.name!=='null') ? d.name : doc.id, 
+                    lastMsg: cleanText(d.last_message), 
+                    time: d.last_message_at,
+                    unreadCount: (doc.id === activeChatId) ? 0 : (d.unread_count || 0),
+                    mentioned: d.mentioned || null
+                });
+            });
+            
+            filterContacts(); 
+        });
+    }
+
+    function renderContacts(query = '') {
+        let html = '';
+        let matchCount = 0; 
+
+        allContacts.forEach(c => {
+            const matchesSearch = c.name.toLowerCase().includes(query) || c.id.includes(query);
+            const matchesUnread = currentFilter === 'unread' ? c.unreadCount > 0 : true;
+            
+            const matchesMention = filterMentionAdmin ? c.mentioned === filterMentionAdmin : true;
+            
+            let matchesDate = true;
+            if (filterStartDate && filterEndDate) {
+                const contactDateObj = parseDate(c.time);
+                if (!isNaN(contactDateObj)) {
+                    matchesDate = contactDateObj >= filterStartDate && contactDateObj <= filterEndDate;
+                } else {
+                    matchesDate = false;
+                }
+            }
+
+            if (matchesSearch && matchesUnread && matchesMention && matchesDate) {
+                matchCount++; 
+                const hasUnread = c.unreadCount > 0;
+                const nameStyle = hasUnread ? 'font-weight:600; color:var(--text-primary);' : 'font-weight:400; color:var(--text-primary);';
+                const timeStyle = hasUnread ? 'font-weight:600; color:var(--accent-green);' : 'font-weight:400; color:var(--text-secondary);';
+                const msgStyle  = hasUnread ? 'font-weight:600; color:var(--text-primary);' : 'font-weight:400; color:var(--text-secondary);';
+                
+                let mentionBadge = '';
+                if(c.mentioned) {
+                    mentionBadge = `<span class="mention-badge">${c.mentioned}</span>`;
+                }
+                
+                html += `<div class="contact ${activeChatId===c.id?'active':''}" 
+                              onclick="openChat('${c.id}', '${c.name.replace(/'/g, "\\'")}')"
+                              oncontextmenu="showContextMenu(event, '${c.id}')">
+                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=random" class="profile-img">
+                    <div class="contact-details">
+                        <div class="contact-top">
+                            <span class="contact-name" style="${nameStyle}">${mentionBadge} ${c.name}</span>
+                            <span class="contact-time" style="${timeStyle}">${formatSidebarDate(c.time)}</span>
+                        </div>
+                        <div class="contact-bottom">
+                            <div class="contact-last-msg" style="${msgStyle}">${c.lastMsg}</div>
+                            ${hasUnread ? `<div class="unread-badge">${c.unreadCount}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="contact-more" onclick="openMentionModal(event, '${c.id}')" title="Mention Admin">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"></path></svg>
+                    </div>
+                </div>`;
+            }
+        });
+
+        if (matchCount === 0) {
+            let emptyMessage = "No chats found";
+            if (currentFilter === 'unread') emptyMessage = "No unread messages";
+            if (filterMentionAdmin) emptyMessage = `No mentions found for ${filterMentionAdmin}`;
+            if (filterStartDate && filterEndDate) emptyMessage = "No chats found in selected date range";
+            if (query !== '') emptyMessage = `No results for "${query}"`;
+
+            html = `
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 60px 20px; color: var(--text-secondary); text-align: center;">
+                    <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px; opacity: 0.4;">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span style="font-size: 15px; font-weight: 500;">${emptyMessage}</span>
+                </div>
+            `;
+        }
+
+        document.getElementById('contactList').innerHTML = html;
+    }
+
+    let mentionTargetId = null;
+    
+    async function openMentionModal(e, contactId) {
+        e.stopPropagation();
+        mentionTargetId = contactId;
+        document.getElementById('mentionModal').style.display = 'flex';
+        document.getElementById('adminList').innerHTML = 'Loading...';
+        
+        try {
+            const res = await fetch("{{ route('chat.admins') }}");
+            const json = await res.json();
+            let html = '';
+            
+            if (json.status && json.data) {
+                json.data.forEach(admin => {
+                    html += `<button class="template-item" onclick="mentionAdmin('${admin.username}')">${admin.username}</button>`;
+                });
+                html += `<button class="template-item" style="color:var(--text-secondary); text-align:center; margin-top:10px; border:1px solid #ddd;" onclick="mentionAdmin(null)">Remove Mention</button>`;
+            } else {
+                html = '<p>Error loading admins.</p>';
+            }
+            document.getElementById('adminList').innerHTML = html;
+        } catch (error) {
+            document.getElementById('adminList').innerHTML = '<p>Error loading admins.</p>';
+        }
+    }
+
+    async function mentionAdmin(username) {
+        if (!mentionTargetId) return;
+        
+        await db.collection('contacts').doc(mentionTargetId).update({ 
+            mentioned: username 
+        });
+        
+        closeMentionModal();
+    }
+
+    function closeMentionModal() {
+        document.getElementById('mentionModal').style.display = 'none';
+        mentionTargetId = null;
+    }
+
+    function openChat(id, name) {
+        activeChatId = id;
+        
+        document.getElementById('defaultScreen').style.display = 'none';
+        document.getElementById('activeChatScreen').style.display = 'flex';
+        document.getElementById('appContainer').classList.add('show-chat');
+
+        document.getElementById('currentChatName').innerText = name;
+        document.getElementById('chatStatus').innerText = (name!==id) ? id : 'online';
+        document.getElementById('headerImg').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+        document.getElementById('chatSearch').value = '';
+
+        const input = document.getElementById('messageInput');
+        input.focus();
+
+        db.collection('contacts').doc(id).update({ unread_count: 0 }).catch(()=>{});
+
+        filterContacts(); 
+        if(messageListenerUnsubscribe) messageListenerUnsubscribe();
+
+        messageListenerUnsubscribe = db.collection('contacts').doc(id).collection('messages')
+            .orderBy('timestamp', 'desc')
+            .limit(50)
+            .onSnapshot(snap => {
+                let messagesData = [];
+                
+                snap.forEach(doc => {
+                    messagesData.push(doc.data());
+                });
+
+                messagesData.sort((a, b) => {
+                    const dateA = parseDate(a.timestamp);
+                    const dateB = parseDate(b.timestamp);
+                    return dateA - dateB;
+                });
+
+                let html = '';
+                let lastDateStr = null;
+
+                messagesData.forEach(m => {
+                    const msgDateObj = parseDate(m.timestamp);
+                    const currentDateStr = msgDateObj.toDateString();
+
+                    if (currentDateStr !== lastDateStr) {
+                        html += `<div class="date-divider"><span>${getWhatsAppDateLabel(msgDateObj)}</span></div>`;
+                        lastDateStr = currentDateStr;
+                    }
+
+                    const isOut = m.direction === 'out';
+                    html += `<div class="msg ${isOut?'msg-out':'msg-in'}">
+                        <span>${cleanText(m.text || m.button_text || m.template)}</span>
+                        <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
+                    </div>`;
+                });
+                
+                const box = document.getElementById('messageDisplay');
+                box.innerHTML = html; 
+                box.scrollTop = box.scrollHeight;
+            });
+    }
+
+    function showContextMenu(e, contactId) {
+        e.preventDefault(); 
+        contextMenuTargetId = contactId;
+        const menu = document.getElementById('contextMenu');
+        menu.style.display = 'block';
+        menu.style.left = e.pageX + 'px';
+        menu.style.top = e.pageY + 'px';
+    }
+
+    async function contextMarkUnread() {
+        if (!contextMenuTargetId) return;
+        const targetId = contextMenuTargetId;
+        
+        document.getElementById('contextMenu').style.display = 'none';
+        contextMenuTargetId = null;
+
+        if (targetId === activeChatId) {
+            goBack(); 
+        }
+
+        const contact = allContacts.find(c => c.id === targetId);
+        if (contact) {
+            notifiedTimestamps[targetId] = contact.time;
+        }
+
+        try {
+            await db.collection('contacts').doc(targetId).update({
+                unread_count: 1 
+            });
+        } catch (e) { console.error("Error marking as unread:", e); }
+    }
+
+    async function headerMarkUnread() {
+        if (!activeChatId) return;
+        const targetId = activeChatId;
+        
+        goBack();
+
+        const contact = allContacts.find(c => c.id === targetId);
+        if (contact) {
+            notifiedTimestamps[targetId] = contact.time;
+        }
+
+        try {
+            await db.collection('contacts').doc(targetId).update({
+                unread_count: 1 
+            });
+        } catch (e) { console.error("Error marking as unread:", e); }
+    }
+
+    function openEditModal() {
+        if (!activeChatId) return;
+        const currentName = document.getElementById('currentChatName').innerText;
+        document.getElementById('editNameInput').value = currentName;
+        document.getElementById('editNameModal').style.display = 'flex';
+        document.getElementById('editNameInput').focus();
+    }
+
+    function closeEditModal() { document.getElementById('editNameModal').style.display = 'none'; }
+
+    async function saveContactName() {
+        if (!activeChatId) return;
+        const newName = document.getElementById('editNameInput').value;
+        
+        if (newName && newName.trim() !== '') {
+            const cleanName = newName.trim();
+            await db.collection('contacts').doc(activeChatId).update({ name: cleanName });
+            
+            document.getElementById('currentChatName').innerText = cleanName;
+            document.getElementById('headerImg').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName)}&background=random`;
+            if (cleanName !== activeChatId) {
+                document.getElementById('chatStatus').innerText = activeChatId;
+            }
+            closeEditModal();
+        }
+    }
+
+    document.getElementById('editNameInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveContactName();
+        }
+    });
+
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text || !activeChatId) return;
+
+        const msgHtml = `<div class="msg msg-out">
+            <span>${cleanText(text)}</span>
+            <div class="msg-meta"><span class="msg-time">${formatTime(new Date())}</span><span class="msg-status">${getTickSVG('pending')}</span></div>
+        </div>`;
+        const box = document.getElementById('messageDisplay');
+        box.insertAdjacentHTML('beforeend', msgHtml);
+        box.scrollTop = box.scrollHeight;
+        
+        input.value = '';
+        input.style.height = 'auto'; 
+        
+        try {
+            await fetch('send-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                body: JSON.stringify({ to: activeChatId, message: text })
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    async function openTemplateModal() {
+        if (!activeChatId) return;
+        
+        document.getElementById('templateModal').style.display = 'flex';
+        
+        document.getElementById('templateList').innerHTML = '<div style="text-align:center; padding: 20px; font-size: 14px; color: var(--text-secondary);">Loading Go Templates...</div>';
+
+        try {
+            const res = await fetch('/get-templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+            });
+            const responseJson = await res.json();
+            let html = '';
+            
+            if (responseJson.data && responseJson.data.length > 0) {
+                responseJson.data.forEach(t => {
+                    html += `<button class="template-item" onclick="sendTemplateMessage('${t.name}', '${t.language || 'en_US'}', '${t.name} template')">${t.name}</button>`;
+                });
+            } else {
+                html = '<p style="text-align:center; color:var(--text-secondary); font-size:14px;">No templates found.</p>';
+            }
+            document.getElementById('templateList').innerHTML = html;
+        } catch(e) {
+            console.error(e);
+            document.getElementById('templateList').innerHTML = '<p style="text-align:center; color:red; font-size:14px;">Error loading templates.</p>';
+        }
+    }
+
+    function closeTemplateModal() { document.getElementById('templateModal').style.display = 'none'; }
+
+    async function sendTemplateMessage(templateName, language, bodyText) {
+        if (!activeChatId) return;
+        closeTemplateModal();
+
+        const msgHtml = `<div class="msg msg-out">
+            <span>${cleanText(bodyText)}</span>
+            <div class="msg-meta"><span class="msg-time">${formatTime(new Date())}</span><span class="msg-status">${getTickSVG('pending')}</span></div>
+        </div>`;
+        const box = document.getElementById('messageDisplay');
+        box.insertAdjacentHTML('beforeend', msgHtml);
+        box.scrollTop = box.scrollHeight;
+
+        try {
+            const res = await fetch('/send-template-message', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
+                },
+                body: JSON.stringify({ 
+                    mobile: activeChatId, 
+                    template_name: templateName,
+                    template_language: language,
+                    message_body: bodyText,
+                    parameters: []
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || data.status === false) {
+                console.error("Backend Error:", data);
+                alert("Error: " + (data.message || data.error || "Check console for details"));
+            }
+        } catch (e) { 
+            console.error("Fetch Error:", e); 
+        }
+    }
+
+    function goBack() { 
+        document.getElementById('appContainer').classList.remove('show-chat'); 
+        activeChatId = null; 
+        document.getElementById('defaultScreen').style.display = 'flex';
+        document.getElementById('activeChatScreen').style.display = 'none';
+    }
+    
+    const msgInput = document.getElementById('messageInput');
+    
+    msgInput.addEventListener("keydown", (e) => { 
+        if (e.key === "Enter" && !e.shiftKey) { 
+            e.preventDefault();
+            sendMessage(); 
+        } 
+    });
+
+    msgInput.addEventListener("input", function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+        
+        const btn = document.getElementById('sendBtn');
+        if (this.value.trim().length > 0) {
+            btn.style.color = "var(--accent-green)";
+        } else {
+            btn.style.color = "#667781";
+        }
+    });
+    async function syncTemplates() {
+        const syncIconBtn = document.getElementById('syncIconBtn');
+        const syncStatus = document.getElementById('syncStatus');
+        const svgIcon = syncIconBtn.querySelector('svg');
+        
+        syncIconBtn.disabled = true;
+        svgIcon.classList.add('spin-anim');
+        syncStatus.style.display = 'block';
+        syncStatus.innerText = 'Fetching from Meta...';
+        syncStatus.style.color = 'var(--text-secondary)';
+
+        try {
+            const fetchRes = await fetch('/whatsapp/fetch-missing-templates', {
+                method: 'GET',
+                headers: { 
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            const contentType = fetchRes.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Server error: Check Laravel logs (storage/logs/laravel.log) or network tab.");
+            }
+
+            const fetchData = await fetchRes.json();
+            
+            if (!fetchData.status) {
+                throw new Error(fetchData.message || 'Fetch failed');
+            }
+
+            if (!fetchData.templates || fetchData.templates.length === 0) {
+                syncStatus.innerText = 'Templates are already up to date.';
+                syncStatus.style.color = 'var(--accent-green)';
+            } else {
+                syncStatus.innerText = `Syncing ${fetchData.templates.length} new templates...`;
+
+                const syncRes = await fetch('/whatsapp/sync-selected-templates', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
+                    },
+                    body: JSON.stringify({ templates: fetchData.templates })
+                });
+
+                const syncContentType = syncRes.headers.get("content-type");
+                if (!syncContentType || !syncContentType.includes("application/json")) {
+                    throw new Error("Server error during sync. Check backend.");
+                }
+
+                const syncData = await syncRes.json();
+
+                if (!syncData.status) {
+                    throw new Error(syncData.message || 'Sync failed');
+                }
+
+                syncStatus.innerText = syncData.message;
+                syncStatus.style.color = 'var(--accent-green)';
+                
+                openTemplateModal();
+            }
+        } catch (error) {
+            syncStatus.innerText = error.message;
+            syncStatus.style.color = '#d32f2f';
+        } finally {
+            setTimeout(() => { 
+                syncStatus.style.display = 'none'; 
+                syncIconBtn.disabled = false;
+                svgIcon.classList.remove('spin-anim');
+            }, 4000);
+        }
+    }
+</script>
+</body>
+</html>
