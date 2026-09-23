@@ -1107,9 +1107,9 @@ class FBWhAutomationController extends Controller
                 ], 500);
             }
 
-            // 5. Update Firebase message status if waId is available
+            // 5. Update Firebase message status and s3_url if waId is available
             if (!empty($waId)) {
-                $this->updateFirebaseMediaStored($waId, $waMessageId);
+                $this->updateFirebaseMediaStored($waId, $waMessageId, $s3->getUrl($s3Key));
             }
 
             return response()->json([
@@ -1244,7 +1244,7 @@ class FBWhAutomationController extends Controller
         }
     }
 
-    private function updateFirebaseMediaStored($waId, $msgId)
+    private function updateFirebaseMediaStored($waId, $msgId, $s3Url = null)
     {
         try {
             $projectId = $this->serviceAccount['project_id'] ?? null;
@@ -1254,12 +1254,18 @@ class FBWhAutomationController extends Controller
             $safeMsgId = urlencode($msgId);
             $docPath = "contacts/{$waId}/messages/{$safeMsgId}";
 
-            $url = "https://firestore.googleapis.com/v1/projects/{$projectId}/databases/(default)/documents/{$docPath}?updateMask.fieldPaths=media_status";
-            $payload = json_encode([
-                'fields' => [
-                    'media_status' => ['stringValue' => 'stored']
-                ]
-            ]);
+            $fields = ['media_status' => ['stringValue' => 'stored']];
+            $maskPaths = ['media_status'];
+
+            if ($s3Url) {
+                $fields['s3_url'] = ['stringValue' => (string)$s3Url];
+                $maskPaths[] = 's3_url';
+            }
+
+            $maskStr = implode('&', array_map(fn($p) => "updateMask.fieldPaths={$p}", $maskPaths));
+            $url = "https://firestore.googleapis.com/v1/projects/{$projectId}/databases/(default)/documents/{$docPath}?{$maskStr}";
+
+            $payload = json_encode(['fields' => $fields]);
 
             $ch = curl_init($url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

@@ -1398,6 +1398,14 @@
         return ['image', 'video', 'audio', 'document', 'sticker'].includes(type);
     }
 
+    // Guard against Firestore Timestamp objects being used as WA media IDs
+    function isValidMediaId(id) {
+        if (!id) return false;
+        const str = String(id);
+        if (str.startsWith('Timestamp') || str.includes('seconds=') || str.length > 80) return false;
+        return true;
+    }
+
     function getMediaViewUrl(m) {
         // Always build from current origin to avoid stale/wrong-domain URLs stored in Firebase
         if (m.wa_message_id) return `${window.location.origin}/api/whatsapp/media/${encodeURIComponent(m.wa_message_id)}/view`;
@@ -1438,21 +1446,36 @@
 
         let contentHtml = '';
 
-        // === CASE 1: Already stored in S3 — render inline directly using the /view URL as src ===
-        if (isStored && viewUrl && ['image', 'video', 'audio', 'sticker'].includes(type)) {
-            if (type === 'image') {
+        // === CASE 1: Already stored in S3 — render inline using s3_url (direct) or /view as fallback ===
+        if (isStored && ['image', 'video', 'audio', 'sticker'].includes(type)) {
+            // Best URL: s3_url from Firebase (public), or from mediaLoaded (just stored), or /view endpoint
+            const s3Direct = m.s3_url || (mediaLoaded[waId] && mediaLoaded[waId].url) || null;
+            let srcUrl = s3Direct;
+            if (!srcUrl && viewUrl) {
+                // fallback: /view endpoint with type/mime hints so backend finds correct S3 key
+                const p = new URLSearchParams();
+                if (m.type) p.set('type', m.type);
+                if (m.mime_type) p.set('mime_type', m.mime_type);
+                if (m.media_id && isValidMediaId(m.media_id)) p.set('media_id', m.media_id);
+                if (activeChatId) p.set('wa_id', activeChatId);
+                srcUrl = viewUrl + (p.toString() ? '?' + p.toString() : '');
+            }
+            if (!srcUrl) {
+                // No URL available at all — fall back to placeholder
+                contentHtml = `<div class="media-placeholder-card"><div class="media-placeholder-info"><span class="media-placeholder-icon">🖼️</span><span class="media-placeholder-title">Stored</span></div></div>`;
+            } else if (type === 'image') {
                 contentHtml = `
                     <div class="media-rendered-content">
-                        <img src="${escapeHtml(viewUrl)}" alt="WhatsApp image" class="chat-media-img"
-                            onclick="openMediaLightbox('${escapeHtml(viewUrl)}')" title="Click to enlarge"
+                        <img src="${escapeHtml(srcUrl)}" alt="WhatsApp image" class="chat-media-img"
+                            onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to enlarge"
                             onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';" />
-                        <div style="display:none;font-size:12px;color:#dc2626;">Failed to load image</div>
+                        <div style="display:none;font-size:12px;color:#dc2626;padding:4px;">Image unavailable</div>
                     </div>`;
             } else if (type === 'video') {
                 contentHtml = `
                     <div class="media-rendered-content">
                         <video controls preload="metadata" playsinline class="chat-media-video">
-                            <source src="${escapeHtml(viewUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                            <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
                             Your browser does not support HTML video.
                         </video>
                     </div>`;
@@ -1460,14 +1483,14 @@
                 contentHtml = `
                     <div class="media-rendered-content">
                         <audio controls preload="metadata" class="chat-media-audio">
-                            <source src="${escapeHtml(viewUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                            <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
                             Your browser does not support HTML audio.
                         </audio>
                     </div>`;
             } else if (type === 'sticker') {
                 contentHtml = `
                     <div class="media-rendered-content">
-                        <img src="${escapeHtml(viewUrl)}" alt="WhatsApp sticker" class="chat-media-sticker" />
+                        <img src="${escapeHtml(srcUrl)}" alt="WhatsApp sticker" class="chat-media-sticker" />
                     </div>`;
             }
             contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
@@ -1596,10 +1619,10 @@
             return;
         }
         const viewParams = new URLSearchParams();
-        if (m.media_id)   viewParams.set('media_id',  m.media_id);
+        if (m.media_id && isValidMediaId(m.media_id)) viewParams.set('media_id', m.media_id);
         if (m.mime_type)  viewParams.set('mime_type', m.mime_type);
         if (m.type)       viewParams.set('type',      m.type);
-        if (activeChatId) viewParams.set('wa_id',     activeChatId);  // contact phone number
+        if (activeChatId) viewParams.set('wa_id',     activeChatId);
         const paramStr = viewParams.toString();
         if (paramStr) viewUrl += (viewUrl.includes('?') ? '&' : '?') + paramStr;
 
@@ -1738,6 +1761,27 @@
                 mediaStored[waMessageId] = true;
                 mediaLoading[waMessageId] = false;
                 delete mediaErrors[waMessageId];
+
+                // Use s3_url from response to display immediately (public S3 URL, no auth needed)
+                const displayUrl = data.s3_url || data.view_url || null;
+                if (displayUrl) {
+                    const type = (m.type || 'image').toLowerCase();
+                    mediaLoaded[waMessageId] = { url: displayUrl, type, filename: m.filename };
+                    // Also save s3_url into Firebase so it persists across reloads
+                    if (data.s3_url && activeChatId) {
+                        try {
+                            const safeDocId = encodeURIComponent(waMessageId);
+                            db.collection('contacts').doc(activeChatId)
+                              .collection('messages').doc(safeDocId)
+                              .update({ s3_url: data.s3_url, media_status: 'stored' })
+                              .catch(e => console.warn('Firebase s3_url update failed:', e));
+                            // Also update local chatMessagesMap so re-render uses s3_url
+                            m.s3_url = data.s3_url;
+                            m.media_status = 'stored';
+                        } catch(e) { /* ignore */ }
+                    }
+                }
+
                 if (data.view_url) {
                     m.media_view_url = data.view_url;
                 }
