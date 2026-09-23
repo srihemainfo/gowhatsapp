@@ -1676,6 +1676,17 @@
 
             updateMessageMediaUI(waMessageId);
 
+            // Auto-play audio/video after loading when user clicked the play button
+            if (type === 'audio' || type === 'video') {
+                const container = document.getElementById('media-content-' + waMessageId);
+                if (container) {
+                    const mediaEl = container.querySelector(type === 'audio' ? 'audio' : 'video');
+                    if (mediaEl) {
+                        mediaEl.play().catch(() => {}); // catch auto-play policy errors silently
+                    }
+                }
+            }
+
         } catch (err) {
             console.warn('Media fetch error:', err);
             
