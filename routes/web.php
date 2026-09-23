@@ -12,6 +12,8 @@ Route::post('/chat-login', [FBWhAutomationController::class, 'processLogin'])->n
 Route::get('/chat-logout', [FBWhAutomationController::class, 'logout'])->name('chat.logout');
 Route::get('/webview-chat', [FBWhAutomationController::class, 'chatPage'])->name('gorideChat');
 Route::post('/send-message', [FBWhAutomationController::class, 'sendMessage']);
+Route::post('/send-media', [FBWhAutomationController::class, 'sendMedia']);
+Route::post('/send-reaction', [FBWhAutomationController::class, 'sendReaction']);
 Route::post('/get-templates', [FBWhAutomationController::class, 'getTemplates']);
 Route::post('/send-template-message', [FBWhAutomationController::class, 'sendTemplateMessage']);
 Route::match(['get', 'post'], '/whatsapp-webhook', [FBWhAutomationController::class, 'whNoreplyWebhook']);

@@ -122,6 +122,210 @@ class FBWhAutomationController extends Controller
             ]);
         }
     }
+
+    public function sendMedia(Request $request)
+    {
+        try {
+            $to = $request->input('to');
+            $caption = $request->input('caption');
+            $typeOverride = $request->input('type');
+            $file = $request->file('file');
+
+            if (!$to || !$file) {
+                return response()->json(['status' => false, 'error' => 'Recipient phone number and media file are required']);
+            }
+
+            $phone_number_id = env('FB_WHATSAPP_PHONE_NUMBER_ID');
+            $ver   = env('FB_WHATSAPP_VERSION', 'v24.0');
+            $token = env('FB_WHATSAPP_TOKEN');
+
+            if (!empty($to) && str_starts_with((string)$to, '44') && env('FB_WHATSAPP_UK_TOKEN')) {
+                $token = env('FB_WHATSAPP_UK_TOKEN');
+            }
+
+            if (!$phone_number_id || !$token) {
+                return response()->json(['status' => false, 'error' => 'Missing WhatsApp API Credentials in configuration']);
+            }
+
+            $mimeType = $file->getMimeType() ?: 'application/octet-stream';
+            $originalFilename = $file->getClientOriginalName() ?: 'file';
+
+            // Determine media type
+            $mediaType = 'document';
+            if (str_starts_with($mimeType, 'image/')) {
+                $mediaType = 'image';
+            } elseif (str_starts_with($mimeType, 'video/')) {
+                $mediaType = 'video';
+            } elseif (str_starts_with($mimeType, 'audio/')) {
+                $mediaType = 'audio';
+            }
+
+            if ($typeOverride && in_array($typeOverride, ['image', 'video', 'audio', 'document'])) {
+                $mediaType = $typeOverride;
+            }
+
+            $ext = $this->getExtensionFromMime($mimeType, $originalFilename);
+            $safeMsgId = 'out_' . time() . '_' . substr(md5(uniqid()), 0, 8);
+
+            // Upload directly to S3
+            $s3 = new AwsS3Service();
+            $folder = $s3->getFolderForType($mediaType);
+            $s3Key = "{$folder}/{$safeMsgId}.{$ext}";
+            $fileBinary = file_get_contents($file->getRealPath());
+
+            $uploaded = $s3->put($s3Key, $fileBinary, $mimeType);
+            if (!$uploaded) {
+                return response()->json(['status' => false, 'error' => 'Failed to store media in S3 cloud']);
+            }
+
+            $s3Url = $s3->getUrl($s3Key);
+
+            // Prepare WhatsApp payload
+            $mediaPayload = ['link' => $s3Url];
+            if (!empty($caption) && in_array($mediaType, ['image', 'video', 'document'])) {
+                $mediaPayload['caption'] = $caption;
+            }
+            if ($mediaType === 'document') {
+                $mediaPayload['filename'] = $originalFilename;
+            }
+
+            $waPayload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type'    => 'individual',
+                'to'                => $to,
+                'type'              => $mediaType,
+                $mediaType          => $mediaPayload
+            ];
+
+            $response = Http::withToken($token)->timeout(25)->post(
+                "https://graph.facebook.com/{$ver}/{$phone_number_id}/messages",
+                $waPayload
+            );
+
+            $res = $response->json();
+
+            // Fallback to Meta /media upload if link is rejected
+            if ($response->failed()) {
+                Log::warning('WhatsApp media link dispatch failed, trying direct /media upload', ['response' => $res]);
+                $uploadRes = Http::withToken($token)->timeout(30)
+                    ->attach('file', $fileBinary, $originalFilename)
+                    ->post("https://graph.facebook.com/{$ver}/{$phone_number_id}/media", [
+                        'messaging_product' => 'whatsapp',
+                        'type'              => $mimeType,
+                    ]);
+
+                if ($uploadRes->successful()) {
+                    $metaId = $uploadRes->json()['id'] ?? null;
+                    if ($metaId) {
+                        $waPayload[$mediaType] = ['id' => $metaId];
+                        if (!empty($caption) && in_array($mediaType, ['image', 'video', 'document'])) {
+                            $waPayload[$mediaType]['caption'] = $caption;
+                        }
+                        if ($mediaType === 'document') {
+                            $waPayload[$mediaType]['filename'] = $originalFilename;
+                        }
+                        $response = Http::withToken($token)->timeout(25)->post(
+                            "https://graph.facebook.com/{$ver}/{$phone_number_id}/messages",
+                            $waPayload
+                        );
+                        $res = $response->json();
+                    }
+                }
+            }
+
+            if ($response->failed()) {
+                $errorMsg = $res['error']['message'] ?? 'Unknown Facebook API Error';
+                return response()->json(['status' => false, 'error' => "FB Error: " . $errorMsg]);
+            }
+
+            $waMessageId = $res['messages'][0]['id'] ?? $safeMsgId;
+            $istTime = Carbon::now('Asia/Kolkata')->toDateTimeString();
+
+            // Save in Firebase & DB
+            $this->storeOutgoingFirebase($to, $waMessageId, $mediaType, $caption ?: "[{$mediaType} message]", null, $istTime, [
+                'media_status' => 'stored',
+                's3_url'       => $s3Url,
+                'caption'      => $caption,
+                'filename'     => $originalFilename,
+                'mime_type'    => $mimeType,
+            ]);
+
+            $this->upsertContactFirebase($to, null, $caption ?: "[{$mediaType}]", false, $istTime);
+            $this->storeOutgoingMessage($to, $waMessageId, $mediaType, $caption ?: "[{$mediaType}]", null);
+
+            return response()->json([
+                'status'        => true,
+                'wa_message_id' => $waMessageId,
+                's3_url'        => $s3Url,
+                'type'          => $mediaType,
+                'caption'       => $caption,
+                'filename'      => $originalFilename,
+                'time'          => $istTime,
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('Send Media Exception: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'status' => false,
+                'error'  => 'System Error: ' . $e->getMessage() . ' on line ' . $e->getLine()
+            ]);
+        }
+    }
+
+    public function sendReaction(Request $request)
+    {
+        try {
+            $to          = $request->input('to');
+            $waMessageId = $request->input('wa_message_id');
+            $emoji       = $request->input('emoji', '');
+
+            if (!$to || !$waMessageId) {
+                return response()->json(['status' => false, 'error' => 'Recipient and Message ID are required']);
+            }
+
+            $phone_number_id = env('FB_WHATSAPP_PHONE_NUMBER_ID');
+            $ver   = env('FB_WHATSAPP_VERSION', 'v24.0');
+            $token = env('FB_WHATSAPP_TOKEN');
+
+            if (!empty($to) && str_starts_with((string)$to, '44') && env('FB_WHATSAPP_UK_TOKEN')) {
+                $token = env('FB_WHATSAPP_UK_TOKEN');
+            }
+
+            if ($phone_number_id && $token) {
+                $waPayload = [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type'    => 'individual',
+                    'to'                => $to,
+                    'type'              => 'reaction',
+                    'reaction'          => [
+                        'message_id' => $waMessageId,
+                        'emoji'      => $emoji,
+                    ]
+                ];
+
+                $response = Http::withToken($token)->timeout(15)->post(
+                    "https://graph.facebook.com/{$ver}/{$phone_number_id}/messages",
+                    $waPayload
+                );
+
+                if ($response->failed()) {
+                    Log::warning('WhatsApp reaction failed:', $response->json());
+                }
+            }
+
+            // Update Firebase message with reaction
+            $this->updateFirebaseMessageField($to, $waMessageId, 'reaction', $emoji);
+
+            return response()->json(['status' => true, 'emoji' => $emoji]);
+
+        } catch (\Throwable $e) {
+            Log::error('Send Reaction Exception: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'error'  => 'System Error: ' . $e->getMessage()
+            ]);
+        }
+    }
     
     public function getTemplates(Request $request)
     {
@@ -662,13 +866,13 @@ class FBWhAutomationController extends Controller
         }
     }
     
-    private function storeOutgoingFirebase($waId, $waMessageId, $type, $text = null, $template = null, $customTime = null)
+    private function storeOutgoingFirebase($waId, $waMessageId, $type, $text = null, $template = null, $customTime = null, array $extra = [])
     {
         try {
             $fallbackText = $text ?? ($template ? "[$template template]" : "Outgoing message");
             $timestamp = $customTime ?? Carbon::now('Asia/Kolkata')->toDateTimeString();
 
-            $this->createMessageFirebase($waId, $waMessageId, [
+            $data = array_merge([
                 'direction' => 'out',
                 'type' => $type,
                 'text' => $fallbackText,
@@ -676,9 +880,39 @@ class FBWhAutomationController extends Controller
                 'wa_message_id' => $waMessageId,
                 'status' => 'sent',
                 'timestamp' => $timestamp,
-            ]);
+            ], $extra);
+
+            $this->createMessageFirebase($waId, $waMessageId, $data);
         } catch (\Throwable $e) {
             Log::error('Firebase Outgoing Error: ' . $e->getMessage());
+        }
+    }
+
+    private function updateFirebaseMessageField($waId, $msgId, $field, $value)
+    {
+        try {
+            $projectId = $this->serviceAccount['project_id'] ?? null;
+            if (!$projectId) return;
+
+            $accessToken = $this->getAccessToken();
+            $safeMsgId = urlencode($msgId);
+            $docPath = "contacts/{$waId}/messages/{$safeMsgId}";
+
+            $url = "https://firestore.googleapis.com/v1/projects/{$projectId}/databases/(default)/documents/{$docPath}?updateMask.fieldPaths={$field}";
+            $payload = json_encode(['fields' => [$field => ['stringValue' => (string)$value]]]);
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $accessToken,
+                'Content-Type: application/json'
+            ]);
+            curl_exec($ch);
+            curl_close($ch);
+        } catch (\Throwable $e) {
+            Log::error('Update Firebase Field Error: ' . $e->getMessage());
         }
     }
     

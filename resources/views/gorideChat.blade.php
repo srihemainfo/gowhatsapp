@@ -279,249 +279,320 @@
         }
 
         .msg {
-            max-width: 65%; padding: 6px 7px 8px 9px; margin-bottom: 12px; font-size: 14.2px;
+            max-width: 65%; padding: 6px 9px 8px 9px; margin-bottom: 12px; font-size: 14.2px;
             position: relative; color: var(--text-primary); line-height: 19px; display: inline-flex;
             flex-direction: column; word-wrap: break-word; box-shadow: 0 1px 0.5px rgba(11,20,26,.13);
+            border-radius: 8px; transition: box-shadow 0.15s ease;
+        }
+
+        .msg:hover .msg-react-trigger {
+            opacity: 1; pointer-events: auto;
         }
 
         .msg span { white-space: pre-wrap; word-break: break-word; }
 
-        .msg-in { background: var(--incoming-msg); align-self: flex-start; border-radius: 0 8px 8px 8px; }
-        .msg-out { background: var(--outgoing-msg); align-self: flex-end; border-radius: 8px 0 8px 8px; }
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 2px; float: right; margin-left: 10px; }
-        .msg-time { font-size: 11px; color: var(--text-secondary); }
-        .msg-status svg { width: 20px; height: 18px; margin-left: 2px; }
+        .msg-in { background: var(--incoming-msg); align-self: flex-start; border-top-left-radius: 0; }
+        .msg-out { background: var(--outgoing-msg); align-self: flex-end; border-top-right-radius: 0; }
+
+        /* Authentic WhatsApp Speech Bubble Tails */
+        .msg-in::before {
+            content: ""; position: absolute; top: 0; left: -8px; width: 8px; height: 13px;
+            background: radial-gradient(circle at top left, transparent 8px, #ffffff 8.5px);
+            pointer-events: none;
+        }
+
+        .msg-out::after {
+            content: ""; position: absolute; top: 0; right: -8px; width: 8px; height: 13px;
+            background: radial-gradient(circle at top right, transparent 8px, #d9fdd3 8.5px);
+            pointer-events: none;
+        }
+
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 3px; float: right; margin-left: 12px; }
+        .msg-time { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+        .msg-status svg { width: 18px; height: 16px; margin-left: 2px; }
+
+        /* Message Reactions Trigger & Pill */
+        .msg-react-trigger {
+            position: absolute; top: 4px; right: -28px; width: 24px; height: 24px;
+            border-radius: 50%; background: #ffffff; border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12); color: #8696a0; display: flex;
+            align-items: center; justify-content: center; cursor: pointer; opacity: 0;
+            pointer-events: none; transition: all 0.15s ease; z-index: 10;
+        }
+
+        .msg-out .msg-react-trigger { right: auto; left: -28px; }
+        .msg-react-trigger:hover { color: #111b21; transform: scale(1.15); background: #f0f2f5; }
+
+        .msg-reaction-pill {
+            position: absolute; bottom: -10px; right: 8px; background: #ffffff;
+            border: 1px solid #e9edef; box-shadow: 0 1px 3px rgba(11,20,26,0.18);
+            border-radius: 12px; padding: 1px 6px; font-size: 13px; line-height: 18px;
+            cursor: pointer; z-index: 5; user-select: none; transition: transform 0.15s ease;
+            display: inline-flex; align-items: center;
+        }
+
+        .msg-in .msg-reaction-pill { right: auto; left: 8px; }
+        .msg-reaction-pill:hover { transform: scale(1.2); }
+
+        .reaction-floating-bar {
+            position: fixed; background: #ffffff; border-radius: 24px;
+            box-shadow: 0 4px 18px rgba(11,20,26,0.22); padding: 4px 8px;
+            display: flex; align-items: center; gap: 4px; z-index: 3000;
+            border: 1px solid #e9edef; animation: reactPop 0.16s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes reactPop {
+            0% { transform: scale(0.6); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .react-emoji {
+            font-size: 24px; line-height: 1; padding: 4px 6px; border-radius: 50%;
+            cursor: pointer; transition: transform 0.15s ease, background 0.15s ease; user-select: none;
+        }
+
+        .react-emoji:hover { transform: scale(1.35) translateY(-2px); background: #f0f2f5; }
 
         /* WhatsApp Media Message Styling */
         .media-container {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            min-width: 180px;
-            max-width: 280px;
-            margin-bottom: 2px;
+            display: flex; flex-direction: column; gap: 4px; min-width: 180px;
+            max-width: 320px; margin-bottom: 2px;
         }
 
         .media-placeholder-card {
-            background: rgba(0, 0, 0, 0.03);
-            border: 1px solid rgba(0, 0, 0, 0.07);
-            border-radius: 8px;
-            padding: 8px 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            text-align: center;
+            background: rgba(0, 0, 0, 0.03); border: 1px solid rgba(0, 0, 0, 0.07);
+            border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column;
+            align-items: center; gap: 8px; text-align: center; width: 100%;
         }
 
         .msg-out .media-placeholder-card {
-            background: rgba(0, 0, 0, 0.025);
-            border-color: rgba(0, 0, 0, 0.06);
+            background: rgba(0, 0, 0, 0.025); border-color: rgba(0, 0, 0, 0.06);
         }
 
         .media-placeholder-info {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
+            display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
         }
 
-        .media-placeholder-icon {
-            font-size: 20px;
-            line-height: 1;
-        }
-
-        .media-placeholder-title {
-            font-size: 13.5px;
-            font-weight: 500;
-            color: var(--text-primary);
-            word-break: break-word;
-        }
+        .media-placeholder-icon { font-size: 22px; line-height: 1; }
+        .media-placeholder-title { font-size: 13.5px; font-weight: 500; color: var(--text-primary); word-break: break-word; }
 
         .media-doc-name {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-primary);
-            word-break: break-all;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .media-placeholder-subtitle {
-            display: none;
+            font-size: 13px; font-weight: 600; color: var(--text-primary); word-break: break-all;
+            max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
 
         .media-actions {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 8px;
-            width: 100%;
-            margin-top: 4px;
+            display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+            gap: 8px; width: 100%; margin-top: 4px;
         }
 
         .media-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            padding: 6px 14px;
-            font-size: 12.5px;
-            font-weight: 500;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            background: #ffffff;
-            color: var(--text-primary);
-            cursor: pointer;
-            transition: all 0.18s ease;
-            outline: none;
-            user-select: none;
-            font-family: inherit;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 6px 14px; font-size: 12.5px; font-weight: 500; border-radius: 16px;
+            border: 1px solid var(--border); background: #ffffff; color: var(--text-primary);
+            cursor: pointer; transition: all 0.18s ease; outline: none; user-select: none; font-family: inherit;
         }
 
-        .media-btn:hover:not(:disabled) {
-            background: var(--hover-chat);
-            border-color: #c0c6c9;
-        }
-
-        .media-btn:disabled {
-            opacity: 0.65;
-            cursor: not-allowed;
-        }
+        .media-btn:hover:not(:disabled) { background: var(--hover-chat); border-color: #c0c6c9; }
+        .media-btn:disabled { opacity: 0.65; cursor: not-allowed; }
 
         .media-btn-primary {
-            background: var(--accent-green);
-            color: #ffffff;
-            border-color: var(--accent-green);
+            background: var(--accent-green); color: #ffffff; border-color: var(--accent-green);
         }
 
-        .media-btn-primary:hover:not(:disabled) {
-            background: #1fa855;
-            border-color: #1fa855;
-        }
+        .media-btn-primary:hover:not(:disabled) { background: #008069; border-color: #008069; }
 
         .media-btn-store {
-            background: #f0f2f5;
-            color: var(--text-secondary);
-            border-color: #d1d7db;
+            background: #f0f2f5; color: var(--text-secondary); border-color: #d1d7db;
         }
 
-        .media-btn-store:hover:not(:disabled) {
-            background: #e2e5e9;
-            color: var(--text-primary);
-        }
+        .media-btn-store:hover:not(:disabled) { background: #e2e5e9; color: var(--text-primary); }
 
         .media-stored-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 11.5px;
-            font-weight: 600;
-            color: #166534;
-            background: #dcfce7;
-            border: 1px solid #bbf7d0;
-            padding: 4px 10px;
-            border-radius: 14px;
+            display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px;
+            font-weight: 600; color: #166534; background: #dcfce7; border: 1px solid #bbf7d0;
+            padding: 3px 9px; border-radius: 14px;
         }
 
         .media-error-text {
-            font-size: 11.5px;
-            color: #dc2626;
-            margin-top: 4px;
-            text-align: center;
-            width: 100%;
-            word-break: break-word;
+            font-size: 11.5px; color: #dc2626; margin-top: 4px; text-align: center;
+            width: 100%; word-break: break-word;
         }
 
         .media-rendered-content {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            align-items: flex-start;
+            display: flex; flex-direction: column; gap: 6px; align-items: flex-start; width: 100%;
         }
 
         .chat-media-img {
-            max-width: 100%;
-            max-height: 320px;
-            border-radius: 6px;
-            object-fit: contain;
-            cursor: pointer;
-            display: block;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-            transition: opacity 0.2s;
+            max-width: 100%; max-height: 280px; border-radius: 8px; object-fit: contain;
+            cursor: pointer; display: block; box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+            transition: opacity 0.18s;
         }
 
-        .chat-media-img:hover {
-            opacity: 0.95;
-        }
+        .chat-media-img:hover { opacity: 0.95; }
 
         .chat-media-sticker {
-            max-width: 140px;
-            max-height: 140px;
-            object-fit: contain;
-            display: block;
+            max-width: 140px; max-height: 140px; object-fit: contain; display: block;
+        }
+
+        /* Fixed Video Container */
+        .media-video-container {
+            position: relative; width: 100%; max-width: 320px; max-height: 240px;
+            border-radius: 8px; overflow: hidden; background: #0b141a;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;
         }
 
         .chat-media-video {
-            max-width: 100%;
-            max-height: 320px;
-            border-radius: 6px;
-            display: block;
-            background: #000;
+            width: 100%; max-width: 320px; max-height: 240px; border-radius: 8px;
+            display: block; background: #000; object-fit: contain;
         }
 
-        .chat-media-audio {
-            width: 100%;
-            min-width: 220px;
-            max-width: 280px;
-            display: block;
-            margin: 4px 0;
+        .video-expand-btn {
+            position: absolute; top: 8px; right: 8px; background: rgba(11, 20, 26, 0.65);
+            color: #ffffff; border: none; border-radius: 50%; width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            z-index: 5; transition: background 0.15s, transform 0.15s;
+        }
+
+        .video-expand-btn:hover { background: rgba(0, 168, 132, 0.95); transform: scale(1.1); }
+
+        /* Voice Note Audio Player */
+        .chat-vn-player {
+            display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+            background: rgba(0, 0, 0, 0.035); border-radius: 14px; min-width: 220px; max-width: 280px;
+        }
+
+        .msg-out .chat-vn-player { background: rgba(0, 0, 0, 0.025); }
+
+        .vn-play-circle {
+            width: 38px; height: 38px; border-radius: 50%; background: var(--accent-green);
+            color: #ffffff; border: none; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0; transition: transform 0.15s, background 0.15s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+        }
+
+        .vn-play-circle:hover { background: #008069; transform: scale(1.06); }
+
+        .vn-track-wrapper { flex: 1; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+
+        .vn-waveform {
+            display: flex; align-items: center; gap: 2.5px; height: 20px; width: 100%;
+        }
+
+        .vn-bar {
+            flex: 1; background: #8696a0; border-radius: 2px; transition: background 0.15s;
+            min-height: 4px;
+        }
+
+        .vn-bar.played { background: var(--accent-green); }
+
+        .vn-timeline {
+            display: flex; justify-content: space-between; font-size: 11px;
+            color: var(--text-secondary); font-weight: 500;
         }
 
         .media-caption {
-            font-size: 13.5px;
-            color: var(--text-primary);
-            line-height: 18px;
-            word-break: break-word;
-            margin-top: 4px;
-            padding: 0 2px;
+            font-size: 13.5px; color: var(--text-primary); line-height: 18px;
+            word-break: break-word; margin-top: 4px; padding: 0 2px;
         }
 
         .media-store-bar {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 4px;
+            display: flex; align-items: center; gap: 8px; margin-top: 4px;
         }
 
-        .lightbox-close-btn {
-            position: absolute;
-            top: -16px;
-            right: -16px;
-            background: #ffffff;
-            color: #111b21;
-            border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            font-size: 24px;
-            line-height: 1;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            z-index: 1001;
-            transition: transform 0.15s;
+        /* Attachment Menu */
+        .attach-popup-menu {
+            position: absolute; bottom: 65px; left: 14px; background: #ffffff;
+            border-radius: 12px; box-shadow: 0 4px 20px rgba(11,20,26,0.2);
+            border: 1px solid var(--border); padding: 8px 0; z-index: 1000;
+            display: flex; flex-direction: column; min-width: 190px; animation: fadeIn 0.15s ease-out;
         }
 
-        .lightbox-close-btn:hover {
-            transform: scale(1.1);
+        .attach-menu-item {
+            display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+            cursor: pointer; transition: background 0.15s; font-size: 14px; color: var(--text-primary);
         }
+
+        .attach-menu-item:hover { background: var(--hover-chat); }
+
+        .attach-icon-circle {
+            width: 32px; height: 32px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; flex-shrink: 0;
+        }
+
+        /* Media Send Preview Modal */
+        .media-send-modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(11, 20, 26, 0.88); z-index: 2500; flex-direction: column;
+            justify-content: space-between; padding: 18px; backdrop-filter: blur(4px);
+        }
+
+        .media-send-header {
+            display: flex; justify-content: space-between; align-items: center; color: #ffffff;
+            padding: 0 10px; height: 44px;
+        }
+
+        .media-send-close-btn {
+            background: none; border: none; color: #ffffff; font-size: 28px; cursor: pointer; line-height: 1;
+        }
+
+        .media-send-body {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            padding: 16px; overflow: hidden; max-height: calc(100vh - 170px);
+        }
+
+        .media-send-preview-img {
+            max-width: 90vw; max-height: 55vh; border-radius: 8px; object-fit: contain;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+        }
+
+        .media-send-preview-video {
+            max-width: 90vw; max-height: 55vh; border-radius: 8px; background: #000;
+        }
+
+        .media-send-doc-box {
+            background: #ffffff; border-radius: 12px; padding: 24px 32px; display: flex;
+            flex-direction: column; align-items: center; gap: 10px; color: var(--text-primary);
+            text-align: center; max-width: 400px;
+        }
+
+        .media-send-footer {
+            display: flex; align-items: center; gap: 12px; max-width: 800px; width: 100%;
+            margin: 0 auto; background: #202c33; border-radius: 28px; padding: 6px 14px;
+        }
+
+        .media-send-caption-input {
+            flex: 1; background: transparent; border: none; outline: none;
+            color: #ffffff; font-size: 15px; font-family: inherit; padding: 8px 4px;
+        }
+
+        .media-send-caption-input::placeholder { color: #8696a0; }
+
+        .media-send-btn {
+            width: 42px; height: 42px; border-radius: 50%; background: #00a884;
+            color: #ffffff; border: none; display: flex; align-items: center;
+            justify-content: center; cursor: pointer; transition: transform 0.15s, background 0.15s;
+            flex-shrink: 0;
+        }
+
+        .media-send-btn:hover { background: #02906f; transform: scale(1.08); }
+
+        .lightbox-btn {
+            background: rgba(11, 20, 26, 0.75); color: #ffffff; border: none;
+            width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s; font-size: 22px; text-decoration: none;
+        }
+
+        .lightbox-btn:hover { background: #00a884; transform: scale(1.1); }
+
+        .send-btn-round {
+            width: 40px; height: 40px; border-radius: 50%; background: var(--accent-green);
+            color: #ffffff !important; display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, transform 0.15s; flex-shrink: 0;
+        }
+
+        .send-btn-round:hover { background: #008069; transform: scale(1.06); }
 
         .footer { min-height: 62px; background: var(--header-bg); display: flex; align-items: center; padding: 10px 16px; z-index: 2; gap: 10px; }
         .input-box { flex: 1; background: var(--input-bg); border-radius: 8px; padding: 12px 16px; border: none; outline: none; font-size: 15px; }
@@ -748,14 +819,71 @@
 
             <div class="footer">
                 <button class="icon-btn" onclick="openTemplateModal()" title="Send Template">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"></path></svg>
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"></path></svg>
                 </button>
+
+                <div style="position: relative;">
+                    <button class="icon-btn" id="attachBtn" onclick="toggleAttachMenu(event)" title="Attach media">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H10v9.5a3.5 3.5 0 0 0 7 0V5a4.5 4.5 0 0 0-9 0v12.5c0 3.31 2.69 6 6 6s6-2.69 6-6V6h-2z"/></svg>
+                    </button>
+                    <div id="attachMenu" class="attach-popup-menu" style="display:none;" onclick="event.stopPropagation()">
+                        <div class="attach-menu-item" onclick="triggerMediaFile('image/*,video/*')">
+                            <div class="attach-icon-circle" style="background:#ac44cf;">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5-7-3 3.72L9 13l-3 4h12l-4-5z"/></svg>
+                            </div>
+                            <span>Photos & Videos</span>
+                        </div>
+                        <div class="attach-menu-item" onclick="triggerMediaFile('audio/*')">
+                            <div class="attach-icon-circle" style="background:#e04663;">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                            </div>
+                            <span>Audio</span>
+                        </div>
+                        <div class="attach-menu-item" onclick="triggerMediaFile('*/*')">
+                            <div class="attach-icon-circle" style="background:#5157ae;">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                            </div>
+                            <span>Document</span>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="file" id="mediaFileInput" style="display:none;" onchange="handleMediaSelected(this)">
+
                 <textarea class="input-box" id="messageInput" placeholder="Type a message" rows="1" style="resize: none; overflow-y: auto; max-height: 120px; font-family: inherit;"></textarea>
-                <button class="icon-btn" id="sendBtn" onclick="sendMessage()">
-                    <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+
+                <button class="icon-btn send-btn-round" id="sendBtn" onclick="sendMessage()" title="Send">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
                 </button>
             </div>
         </div>
+    </div>
+</div>
+
+<div id="msgReactionFloatingBar" class="reaction-floating-bar" style="display:none;" onclick="event.stopPropagation()">
+    <span class="react-emoji" onclick="selectReaction('👍')" title="Thumbs up">👍</span>
+    <span class="react-emoji" onclick="selectReaction('❤️')" title="Love">❤️</span>
+    <span class="react-emoji" onclick="selectReaction('😂')" title="Laugh">😂</span>
+    <span class="react-emoji" onclick="selectReaction('😮')" title="Surprised">😮</span>
+    <span class="react-emoji" onclick="selectReaction('😢')" title="Sad">😢</span>
+    <span class="react-emoji" onclick="selectReaction('🙏')" title="Thanks / Pray">🙏</span>
+</div>
+
+<div id="mediaSendModal" class="media-send-modal-overlay">
+    <div class="media-send-header">
+        <button type="button" class="media-send-close-btn" onclick="closeMediaSendModal()" title="Close">&times;</button>
+        <div id="mediaSendTitle" style="font-weight: 500; font-size: 15px;">Send Media</div>
+        <div style="width: 28px;"></div>
+    </div>
+    <div class="media-send-body" id="mediaSendPreviewContainer">
+        <!-- Dynamic Preview -->
+    </div>
+    <div class="media-send-footer">
+        <input type="text" id="mediaCaptionInput" class="media-send-caption-input" placeholder="Add a caption..." autocomplete="off">
+        <button type="button" id="mediaSendConfirmBtn" class="media-send-btn" onclick="submitSendMedia()" title="Send">
+            <svg id="mediaSendBtnIcon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"/></svg>
+            <div id="mediaSendSpinner" class="spinner" style="display:none; width:20px; height:20px; border-width:2px; border-left-color:#fff;"></div>
+        </button>
     </div>
 </div>
 
@@ -803,9 +931,15 @@
 </div>
 
 <div id="mediaLightboxModal" class="modal-overlay" onclick="closeMediaLightbox()">
-    <div style="position: relative; max-width: 90vw; max-height: 90vh; display: flex; align-items: center; justify-content: center;" onclick="event.stopPropagation()">
-        <button type="button" class="lightbox-close-btn" onclick="closeMediaLightbox()" title="Close">&times;</button>
-        <img id="mediaLightboxImg" src="" alt="Full Preview" style="max-width: 90vw; max-height: 85vh; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 24px rgba(0,0,0,0.5);" />
+    <div style="position: relative; max-width: 90vw; max-height: 90vh; display: flex; align-items: center; justify-content: center; flex-direction: column;" onclick="event.stopPropagation()">
+        <div style="position: absolute; top: -45px; right: 0; display: flex; gap: 10px; z-index: 1001;">
+            <a id="mediaLightboxDownload" href="#" download class="lightbox-btn" title="Download">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            </a>
+            <button type="button" class="lightbox-btn" onclick="closeMediaLightbox()" title="Close">&times;</button>
+        </div>
+        <img id="mediaLightboxImg" src="" alt="Full Preview" style="max-width: 90vw; max-height: 85vh; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 24px rgba(0,0,0,0.5); display: none;" />
+        <video id="mediaLightboxVideo" controls playsinline style="max-width: 90vw; max-height: 85vh; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.5); background: #000; display: none;"></video>
     </div>
 </div>
 
@@ -1359,15 +1493,23 @@
                     }
 
                     const isOut = m.direction === 'out';
+                    const waId = m.wa_message_id || '';
+                    const reactPillHtml = m.reaction ? `<div class="msg-reaction-pill" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="Reaction">${escapeHtml(m.reaction)}</div>` : '';
+                    const reactBtnHtml = waId ? `<button type="button" class="msg-react-trigger" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="React"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>` : '';
+
                     if (isMediaMessage(m)) {
-                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}" data-wa-msg-id="${escapeHtml(m.wa_message_id || '')}">
+                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}" data-wa-msg-id="${escapeHtml(waId)}">
+                            ${reactBtnHtml}
                             ${renderMediaMessageContent(m)}
                             <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
+                            ${reactPillHtml}
                         </div>`;
                     } else {
-                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}">
+                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}" data-wa-msg-id="${escapeHtml(waId)}">
+                            ${reactBtnHtml}
                             <span>${cleanText(m.text || m.button_text || m.template)}</span>
                             <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
+                            ${reactPillHtml}
                         </div>`;
                     }
                 });
@@ -1474,18 +1616,45 @@
             } else if (type === 'video') {
                 contentHtml = `
                     <div class="media-rendered-content">
-                        <video controls preload="metadata" playsinline class="chat-media-video">
-                            <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
-                            Your browser does not support HTML video.
-                        </video>
+                        <div class="media-video-container">
+                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(srcUrl)}">
+                                <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                                Your browser does not support HTML video.
+                            </video>
+                            <button type="button" class="video-expand-btn" onclick="openMediaLightbox('${escapeHtml(srcUrl)}', 'video')" title="Watch full screen">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                            </button>
+                        </div>
                     </div>`;
             } else if (type === 'audio') {
                 contentHtml = `
                     <div class="media-rendered-content">
-                        <audio controls preload="metadata" class="chat-media-audio">
-                            <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
-                            Your browser does not support HTML audio.
-                        </audio>
+                        <div class="chat-vn-player" data-wa-id="${escapeHtml(waId)}">
+                            <button type="button" class="vn-play-circle" onclick="toggleAudioPlay(this, '${escapeHtml(srcUrl)}')">
+                                <svg class="vn-icon-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                <svg class="vn-icon-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                            </button>
+                            <div class="vn-track-wrapper" onclick="toggleAudioPlay(this.previousElementSibling, '${escapeHtml(srcUrl)}')">
+                                <div class="vn-waveform">
+                                    <span class="vn-bar" style="height:35%"></span>
+                                    <span class="vn-bar" style="height:65%"></span>
+                                    <span class="vn-bar" style="height:100%"></span>
+                                    <span class="vn-bar" style="height:60%"></span>
+                                    <span class="vn-bar" style="height:85%"></span>
+                                    <span class="vn-bar" style="height:50%"></span>
+                                    <span class="vn-bar" style="height:90%"></span>
+                                    <span class="vn-bar" style="height:40%"></span>
+                                    <span class="vn-bar" style="height:75%"></span>
+                                    <span class="vn-bar" style="height:55%"></span>
+                                    <span class="vn-bar" style="height:95%"></span>
+                                    <span class="vn-bar" style="height:45%"></span>
+                                    <span class="vn-bar" style="height:80%"></span>
+                                    <span class="vn-bar" style="height:65%"></span>
+                                </div>
+                                <div class="vn-timeline"><span class="vn-current-time">0:00</span><span>Voice message</span></div>
+                            </div>
+                            <audio preload="metadata" src="${escapeHtml(srcUrl)}" style="display:none;" ontimeupdate="onVnTimeUpdate(this)" onended="onVnEnded(this)" onloadedmetadata="onVnLoadedMeta(this)"></audio>
+                        </div>
                     </div>`;
             } else if (type === 'sticker') {
                 contentHtml = `
@@ -1505,18 +1674,45 @@
             } else if (type === 'video') {
                 contentHtml = `
                     <div class="media-rendered-content">
-                        <video controls preload="metadata" playsinline class="chat-media-video">
-                            <source src="${escapeHtml(loaded.url)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
-                            Your browser does not support HTML video.
-                        </video>
+                        <div class="media-video-container">
+                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(loaded.url)}">
+                                <source src="${escapeHtml(loaded.url)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                                Your browser does not support HTML video.
+                            </video>
+                            <button type="button" class="video-expand-btn" onclick="openMediaLightbox('${escapeHtml(loaded.url)}', 'video')" title="Watch full screen">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                            </button>
+                        </div>
                     </div>`;
             } else if (type === 'audio') {
                 contentHtml = `
                     <div class="media-rendered-content">
-                        <audio controls preload="metadata" class="chat-media-audio">
-                            <source src="${escapeHtml(loaded.url)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
-                            Your browser does not support HTML audio.
-                        </audio>
+                        <div class="chat-vn-player" data-wa-id="${escapeHtml(waId)}">
+                            <button type="button" class="vn-play-circle" onclick="toggleAudioPlay(this, '${escapeHtml(loaded.url)}')">
+                                <svg class="vn-icon-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                <svg class="vn-icon-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                            </button>
+                            <div class="vn-track-wrapper" onclick="toggleAudioPlay(this.previousElementSibling, '${escapeHtml(loaded.url)}')">
+                                <div class="vn-waveform">
+                                    <span class="vn-bar" style="height:35%"></span>
+                                    <span class="vn-bar" style="height:65%"></span>
+                                    <span class="vn-bar" style="height:100%"></span>
+                                    <span class="vn-bar" style="height:60%"></span>
+                                    <span class="vn-bar" style="height:85%"></span>
+                                    <span class="vn-bar" style="height:50%"></span>
+                                    <span class="vn-bar" style="height:90%"></span>
+                                    <span class="vn-bar" style="height:40%"></span>
+                                    <span class="vn-bar" style="height:75%"></span>
+                                    <span class="vn-bar" style="height:55%"></span>
+                                    <span class="vn-bar" style="height:95%"></span>
+                                    <span class="vn-bar" style="height:45%"></span>
+                                    <span class="vn-bar" style="height:80%"></span>
+                                    <span class="vn-bar" style="height:65%"></span>
+                                </div>
+                                <div class="vn-timeline"><span class="vn-current-time">0:00</span><span>Voice message</span></div>
+                            </div>
+                            <audio preload="metadata" src="${escapeHtml(loaded.url)}" style="display:none;" ontimeupdate="onVnTimeUpdate(this)" onended="onVnEnded(this)" onloadedmetadata="onVnLoadedMeta(this)"></audio>
+                        </div>
                     </div>`;
             } else if (type === 'document') {
                 contentHtml = `
@@ -1680,9 +1876,15 @@
             if (type === 'audio' || type === 'video') {
                 const container = document.getElementById('media-content-' + waMessageId);
                 if (container) {
-                    const mediaEl = container.querySelector(type === 'audio' ? 'audio' : 'video');
-                    if (mediaEl) {
-                        mediaEl.play().catch(() => {}); // catch auto-play policy errors silently
+                    if (type === 'audio') {
+                        const playBtn = container.querySelector('.vn-play-circle');
+                        if (playBtn) playBtn.click();
+                    } else if (type === 'video') {
+                        const mediaEl = container.querySelector('video');
+                        if (mediaEl) {
+                            mediaEl.load();
+                            mediaEl.play().catch(() => {});
+                        }
                     }
                 }
             }
@@ -1810,25 +2012,392 @@
         }
     }
 
-    function openMediaLightbox(url) {
+    function openMediaLightbox(url, type = 'image') {
         const modal = document.getElementById('mediaLightboxModal');
         const img = document.getElementById('mediaLightboxImg');
-        if (modal && img && url) {
-            img.src = url;
-            modal.style.display = 'flex';
+        const video = document.getElementById('mediaLightboxVideo');
+        const dl = document.getElementById('mediaLightboxDownload');
+        if (!modal || !url) return;
+
+        if (type === 'video') {
+            if (img) { img.style.display = 'none'; img.src = ''; }
+            if (video) {
+                video.style.display = 'block';
+                video.src = url;
+                video.load();
+                video.play().catch(() => {});
+            }
+        } else {
+            if (video) {
+                video.pause();
+                video.src = '';
+                video.style.display = 'none';
+            }
+            if (img) {
+                img.style.display = 'block';
+                img.src = url;
+            }
         }
+        if (dl) dl.href = url;
+        modal.style.display = 'flex';
     }
 
     function closeMediaLightbox() {
         const modal = document.getElementById('mediaLightboxModal');
         const img = document.getElementById('mediaLightboxImg');
+        const video = document.getElementById('mediaLightboxVideo');
+        if (video) {
+            video.pause();
+            video.src = '';
+            video.style.display = 'none';
+        }
+        if (img) {
+            img.src = '';
+            img.style.display = 'none';
+        }
         if (modal) modal.style.display = 'none';
-        if (img) img.src = '';
+    }
+
+    // Audio Voice Note Player Controls
+    let currentPlayingAudio = null;
+
+    function toggleAudioPlay(btn, url) {
+        const container = btn.closest('.chat-vn-player');
+        if (!container) return;
+        const audio = container.querySelector('audio');
+        if (!audio) return;
+
+        if (audio.paused) {
+            if (currentPlayingAudio && currentPlayingAudio !== audio) {
+                currentPlayingAudio.pause();
+                const prevBtn = currentPlayingAudio.closest('.chat-vn-player')?.querySelector('.vn-play-circle');
+                if (prevBtn) {
+                    const p1 = prevBtn.querySelector('.vn-icon-play');
+                    const p2 = prevBtn.querySelector('.vn-icon-pause');
+                    if (p1) p1.style.display = 'block';
+                    if (p2) p2.style.display = 'none';
+                }
+            }
+            audio.play().then(() => {
+                currentPlayingAudio = audio;
+                const p1 = btn.querySelector('.vn-icon-play');
+                const p2 = btn.querySelector('.vn-icon-pause');
+                if (p1) p1.style.display = 'none';
+                if (p2) p2.style.display = 'block';
+            }).catch(e => console.warn('Audio play error:', e));
+        } else {
+            audio.pause();
+            const p1 = btn.querySelector('.vn-icon-play');
+            const p2 = btn.querySelector('.vn-icon-pause');
+            if (p1) p1.style.display = 'block';
+            if (p2) p2.style.display = 'none';
+        }
+    }
+
+    function onVnTimeUpdate(audio) {
+        const container = audio.closest('.chat-vn-player');
+        if (!container) return;
+        const timeEl = container.querySelector('.vn-current-time');
+        if (timeEl && audio.duration) {
+            const cur = Math.floor(audio.currentTime);
+            const mins = Math.floor(cur / 60);
+            const secs = cur % 60;
+            timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+        const bars = container.querySelectorAll('.vn-bar');
+        if (bars.length && audio.duration) {
+            const progressRatio = audio.currentTime / audio.duration;
+            const activeBars = Math.floor(progressRatio * bars.length);
+            bars.forEach((bar, idx) => {
+                if (idx <= activeBars) bar.classList.add('played');
+                else bar.classList.remove('played');
+            });
+        }
+    }
+
+    function onVnEnded(audio) {
+        const container = audio.closest('.chat-vn-player');
+        if (!container) return;
+        const btn = container.querySelector('.vn-play-circle');
+        if (btn) {
+            const p1 = btn.querySelector('.vn-icon-play');
+            const p2 = btn.querySelector('.vn-icon-pause');
+            if (p1) p1.style.display = 'block';
+            if (p2) p2.style.display = 'none';
+        }
+        const bars = container.querySelectorAll('.vn-bar');
+        bars.forEach(b => b.classList.remove('played'));
+        const timeEl = container.querySelector('.vn-current-time');
+        if (timeEl && audio.duration) {
+            const cur = Math.floor(audio.duration);
+            const mins = Math.floor(cur / 60);
+            const secs = cur % 60;
+            timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+    }
+
+    function onVnLoadedMeta(audio) {
+        const container = audio.closest('.chat-vn-player');
+        if (!container) return;
+        const timeEl = container.querySelector('.vn-current-time');
+        if (timeEl && audio.duration && !isNaN(audio.duration)) {
+            const cur = Math.floor(audio.duration);
+            const mins = Math.floor(cur / 60);
+            const secs = cur % 60;
+            timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+    }
+
+    // Message Reactions Picker
+    let currentReactionTargetWaId = null;
+
+    function openReactionPicker(event, waMessageId) {
+        event.stopPropagation();
+        currentReactionTargetWaId = waMessageId;
+        const bar = document.getElementById('msgReactionFloatingBar');
+        if (!bar) return;
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        bar.style.display = 'flex';
+        const barWidth = 240;
+        let left = rect.left - 60;
+        if (left < 10) left = 10;
+        if (left + barWidth > window.innerWidth) left = window.innerWidth - barWidth - 10;
+        let top = rect.top - 48;
+        if (top < 10) top = rect.bottom + 10;
+
+        bar.style.left = left + 'px';
+        bar.style.top = top + 'px';
+    }
+
+    async function selectReaction(emoji) {
+        const waId = currentReactionTargetWaId;
+        const bar = document.getElementById('msgReactionFloatingBar');
+        if (bar) bar.style.display = 'none';
+        if (!waId || !activeChatId) return;
+
+        if (chatMessagesMap[waId]) {
+            chatMessagesMap[waId].reaction = emoji;
+        }
+        const msgEl = document.querySelector(`.msg[data-wa-msg-id="${waId}"]`);
+        if (msgEl) {
+            let pill = msgEl.querySelector('.msg-reaction-pill');
+            if (!pill) {
+                pill = document.createElement('div');
+                pill.className = 'msg-reaction-pill';
+                pill.onclick = (e) => openReactionPicker(e, waId);
+                msgEl.appendChild(pill);
+            }
+            pill.innerText = emoji;
+        }
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            await fetch('/send-reaction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    to: activeChatId,
+                    wa_message_id: waId,
+                    emoji: emoji
+                })
+            });
+        } catch (e) {
+            console.error('Reaction error:', e);
+        }
+    }
+
+    // Attachment & Outgoing Media Sending
+    let selectedMediaFile = null;
+
+    function toggleAttachMenu(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('attachMenu');
+        if (menu) {
+            menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'flex' : 'none';
+        }
+    }
+
+    function triggerMediaFile(accept) {
+        const menu = document.getElementById('attachMenu');
+        if (menu) menu.style.display = 'none';
+        const fileInput = document.getElementById('mediaFileInput');
+        if (fileInput) {
+            fileInput.accept = accept;
+            fileInput.value = '';
+            fileInput.click();
+        }
+    }
+
+    function handleMediaSelected(input) {
+        const file = input.files?.[0];
+        if (!file || !activeChatId) return;
+        selectedMediaFile = file;
+
+        const modal = document.getElementById('mediaSendModal');
+        const previewBox = document.getElementById('mediaSendPreviewContainer');
+        const captionInput = document.getElementById('mediaCaptionInput');
+        const titleEl = document.getElementById('mediaSendTitle');
+        captionInput.value = '';
+
+        const mime = file.type || '';
+        const blobUrl = URL.createObjectURL(file);
+
+        if (mime.startsWith('image/')) {
+            titleEl.innerText = 'Send Image';
+            previewBox.innerHTML = `<img src="${blobUrl}" class="media-send-preview-img" alt="Preview">`;
+        } else if (mime.startsWith('video/')) {
+            titleEl.innerText = 'Send Video';
+            previewBox.innerHTML = `<video controls playsinline src="${blobUrl}" class="media-send-preview-video"></video>`;
+        } else if (mime.startsWith('audio/')) {
+            titleEl.innerText = 'Send Audio';
+            previewBox.innerHTML = `
+                <div class="media-send-doc-box">
+                    <div style="font-size: 48px;">🎵</div>
+                    <div style="font-weight: 600; font-size: 16px;">${escapeHtml(file.name)}</div>
+                    <audio controls src="${blobUrl}" style="margin-top: 10px; width: 100%;"></audio>
+                </div>`;
+        } else {
+            titleEl.innerText = 'Send Document';
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+            previewBox.innerHTML = `
+                <div class="media-send-doc-box">
+                    <div style="font-size: 48px;">📄</div>
+                    <div style="font-weight: 600; font-size: 16px; word-break: break-all;">${escapeHtml(file.name)}</div>
+                    <div style="font-size: 13px; color: var(--text-secondary);">${sizeMb} MB</div>
+                </div>`;
+        }
+
+        modal.style.display = 'flex';
+        captionInput.focus();
+    }
+
+    function closeMediaSendModal() {
+        const modal = document.getElementById('mediaSendModal');
+        if (modal) modal.style.display = 'none';
+        selectedMediaFile = null;
+        const fileInput = document.getElementById('mediaFileInput');
+        if (fileInput) fileInput.value = '';
+    }
+
+    async function submitSendMedia() {
+        if (!selectedMediaFile || !activeChatId) return;
+
+        const caption = document.getElementById('mediaCaptionInput').value.trim();
+        const btn = document.getElementById('mediaSendConfirmBtn');
+        const icon = document.getElementById('mediaSendBtnIcon');
+        const spinner = document.getElementById('mediaSendSpinner');
+
+        btn.disabled = true;
+        if (icon) icon.style.display = 'none';
+        if (spinner) spinner.style.display = 'block';
+
+        const file = selectedMediaFile;
+        const blobUrl = URL.createObjectURL(file);
+        const tempId = 'temp_' + Date.now();
+        const mime = file.type || '';
+        let mediaType = 'document';
+        if (mime.startsWith('image/')) mediaType = 'image';
+        else if (mime.startsWith('video/')) mediaType = 'video';
+        else if (mime.startsWith('audio/')) mediaType = 'audio';
+
+        // Optimistic media bubble in chat
+        let previewHtml = '';
+        if (mediaType === 'image') {
+            previewHtml = `<img src="${blobUrl}" class="chat-media-img" style="opacity: 0.7;">`;
+        } else if (mediaType === 'video') {
+            previewHtml = `<video src="${blobUrl}" controls class="chat-media-video" style="max-height: 200px; opacity: 0.7;"></video>`;
+        } else if (mediaType === 'audio') {
+            previewHtml = `<audio src="${blobUrl}" controls style="width: 100%; opacity: 0.7;"></audio>`;
+        } else {
+            previewHtml = `<div class="media-placeholder-card"><span class="media-placeholder-icon">📄</span><span class="media-doc-name">${escapeHtml(file.name)}</span></div>`;
+        }
+
+        const msgHtml = `<div class="msg msg-out" id="${tempId}">
+            <div class="media-container">${previewHtml}</div>
+            ${caption ? `<div class="media-caption"><span>${escapeHtml(caption)}</span></div>` : ''}
+            <div class="msg-meta"><span class="msg-time">${formatTime(new Date())}</span><span class="msg-status"><span class="spinner" style="width:12px; height:12px; border-width:2px;"></span></span></div>
+        </div>`;
+        const box = document.getElementById('messageDisplay');
+        box.insertAdjacentHTML('beforeend', msgHtml);
+        box.scrollTop = box.scrollHeight;
+
+        const formData = new FormData();
+        formData.append('to', activeChatId);
+        formData.append('file', file);
+        if (caption) formData.append('caption', caption);
+
+        closeMediaSendModal();
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const res = await fetch('/send-media', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+
+            const data = await res.json().catch(() => null);
+
+            const tempEl = document.getElementById(tempId);
+            if (res.ok && data && data.status) {
+                if (tempEl) {
+                    const statusSpan = tempEl.querySelector('.msg-status');
+                    if (statusSpan) statusSpan.innerHTML = getTickSVG('sent');
+                    if (data.wa_message_id) {
+                        tempEl.setAttribute('data-wa-msg-id', data.wa_message_id);
+                        tempEl.id = 'media-content-' + data.wa_message_id;
+                    }
+                    const mediaImg = tempEl.querySelector('.chat-media-img');
+                    if (mediaImg) mediaImg.style.opacity = '1';
+                }
+            } else {
+                console.error('Send media failed:', data);
+                if (tempEl) {
+                    const statusSpan = tempEl.querySelector('.msg-status');
+                    if (statusSpan) statusSpan.innerHTML = `<span style="color:red; font-size:11px;" title="${escapeHtml(data?.error || 'Failed')}">⚠️</span>`;
+                }
+            }
+        } catch (err) {
+            console.error('Send media network error:', err);
+            const tempEl = document.getElementById(tempId);
+            if (tempEl) {
+                const statusSpan = tempEl.querySelector('.msg-status');
+                if (statusSpan) statusSpan.innerHTML = `<span style="color:red; font-size:11px;">⚠️</span>`;
+            }
+        } finally {
+            btn.disabled = false;
+            if (icon) icon.style.display = 'block';
+            if (spinner) spinner.style.display = 'none';
+        }
     }
 
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeMediaLightbox();
+            closeMediaSendModal();
+            const bar = document.getElementById('msgReactionFloatingBar');
+            if (bar) bar.style.display = 'none';
+            const attach = document.getElementById('attachMenu');
+            if (attach) attach.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        const bar = document.getElementById('msgReactionFloatingBar');
+        if (bar && bar.style.display !== 'none' && !bar.contains(e.target)) {
+            bar.style.display = 'none';
+        }
+        const attachMenu = document.getElementById('attachMenu');
+        if (attachMenu && attachMenu.style.display !== 'none' && !attachMenu.contains(e.target) && e.target.id !== 'attachBtn' && !e.target.closest('#attachBtn')) {
+            attachMenu.style.display = 'none';
         }
     });
 
@@ -2033,10 +2602,9 @@
         this.style.height = (this.scrollHeight) + 'px';
         
         const btn = document.getElementById('sendBtn');
-        if (this.value.trim().length > 0) {
-            btn.style.color = "var(--accent-green)";
-        } else {
-            btn.style.color = "#667781";
+        if (btn) {
+            btn.style.opacity = this.value.trim().length > 0 ? "1" : "0.85";
+            btn.style.transform = this.value.trim().length > 0 ? "scale(1.05)" : "scale(1)";
         }
     });
     async function syncTemplates() {
