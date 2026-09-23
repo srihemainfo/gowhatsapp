@@ -372,18 +372,23 @@
             min-height: 160px !important;
             max-width: 330px;
             background: var(--incoming-msg);
+            box-sizing: border-box;
         }
 
         .msg-out.msg-media-bubble {
             background: var(--outgoing-msg) !important;
         }
 
+        .msg-media-captioned {
+            padding: 3px 3px 6px 3px !important;
+            min-height: auto !important;
+        }
+
         .msg-media-bubble .media-container {
             margin-bottom: 0 !important;
             max-width: 100% !important;
-            width: fit-content !important;
+            width: 100% !important;
             min-width: 220px;
-            min-height: 160px;
             position: relative;
         }
 
@@ -391,11 +396,11 @@
             position: relative;
             width: 100%;
             min-width: 220px;
-            min-height: 160px;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #e9edef;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            background: transparent;
             border-radius: 6px;
         }
 
@@ -410,6 +415,36 @@
             display: block;
             object-fit: cover;
             background: #e9edef;
+        }
+
+        .msg-media-captioned .chat-media-img,
+        .msg-media-captioned .media-video-container {
+            border-radius: 6px 6px 0 0 !important;
+        }
+
+        .media-caption-box {
+            display: flex;
+            flex-direction: column;
+            padding: 6px 7px 2px 7px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .media-caption-text {
+            font-size: 14.2px;
+            line-height: 19px;
+            color: var(--text-primary);
+            word-break: break-word;
+            user-select: text;
+        }
+
+        .media-caption-box .msg-meta {
+            align-self: flex-end;
+            margin: 2px 0 0 0 !important;
+            float: right;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
         }
 
         .msg-meta-floating {
@@ -1675,7 +1710,9 @@
                 let messagesData = [];
                 
                 snap.forEach(doc => {
-                    messagesData.push(doc.data());
+                    const d = doc.data() || {};
+                    if (!d.wa_message_id) d.wa_message_id = doc.id;
+                    messagesData.push(d);
                 });
 
                 messagesData.sort((a, b) => {
@@ -1710,17 +1747,17 @@
                     }
                     // Direct URL check: S3 URL is present, or blob URL loaded in memory, or outgoing media preview
                     const hasDirectMediaUrl = Boolean(m.s3_url) || Boolean(waId && mediaLoaded[waId]?.url) || (isOut && Boolean(m.media_view_url || m.url));
-                    // Only use floating media bubble for images/videos that actually have a ready direct URL and no caption
-                    const isVisualMediaNoCaption = !hasCaption && ['image', 'video'].includes(type) && hasDirectMediaUrl;
+                    const isVisualMedia = ['image', 'video'].includes(type) && hasDirectMediaUrl;
 
                     const reactPillHtml = m.reaction ? `<div class="msg-reaction-pill" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="Reaction">${escapeHtml(m.reaction)}</div>` : '';
                     const reactBtnHtml = waId ? `<button type="button" class="msg-react-trigger" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="React"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>` : '';
 
                     if (isMediaMessage(m)) {
-                        html += `<div class="msg ${isOut?'msg-out':'msg-in'} ${isVisualMediaNoCaption ? 'msg-media-bubble' : ''}" data-wa-msg-id="${escapeHtml(waId)}">
+                        const mediaBubbleClass = isVisualMedia ? (hasCaption ? 'msg-media-bubble msg-media-captioned' : 'msg-media-bubble') : '';
+                        html += `<div class="msg ${isOut?'msg-out':'msg-in'} ${mediaBubbleClass}" data-wa-msg-id="${escapeHtml(waId)}">
                             ${reactBtnHtml}
                             ${renderMediaMessageContent(m)}
-                            ${!isVisualMediaNoCaption ? `
+                            ${!isVisualMedia ? `
                             <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
                             ` : ''}
                             ${reactPillHtml}
@@ -1761,12 +1798,29 @@
         return ['image', 'video', 'audio', 'document', 'sticker'].includes(type);
     }
 
-    // Guard against Firestore Timestamp objects being used as WA media IDs
+    // Guard against Firestore Timestamp objects or message IDs being used as WA media IDs
     function isValidMediaId(id) {
         if (!id) return false;
-        const str = String(id);
+        const str = String(id).trim();
         if (str.startsWith('Timestamp') || str.includes('seconds=') || str.length > 80) return false;
+        if (str.startsWith('wamid.') || str.startsWith('out_')) return false;
         return true;
+    }
+
+    function getCandidateMediaId(m) {
+        if (!m) return null;
+        const type = (m.type || '').toLowerCase();
+        const candidate = m.media_id 
+            || m.mediaId 
+            || (m[type] && m[type].id)
+            || (m.image && m.image.id)
+            || (m.video && m.video.id)
+            || (m.audio && m.audio.id)
+            || (m.document && m.document.id)
+            || (m.sticker && m.sticker.id)
+            || (m.id && !String(m.id).startsWith('wamid.') && !String(m.id).startsWith('out_') ? m.id : null);
+        if (candidate && isValidMediaId(candidate)) return String(candidate).trim();
+        return null;
     }
 
     function getMediaViewUrl(m) {
@@ -1835,7 +1889,11 @@
                         <div class="msg-meta msg-meta-floating">
                             <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
                             ${isOut ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
-                        </div>` : ''}
+                        </div>` : `
+                        <div class="media-caption-box">
+                            <span class="media-caption-text">${escapeHtml(m.caption)}</span>
+                            <div class="msg-meta"><span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}</div>
+                        </div>`}
                     </div>`;
             } else if (type === 'video') {
                 contentHtml = `
@@ -1854,6 +1912,11 @@
                                 ${isOut ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
                             </div>` : ''}
                         </div>
+                        ${hasCaption ? `
+                        <div class="media-caption-box">
+                            <span class="media-caption-text">${escapeHtml(m.caption)}</span>
+                            <div class="msg-meta"><span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}</div>
+                        </div>` : ''}
                     </div>`;
             } else if (type === 'audio') {
                 contentHtml = `
@@ -1962,7 +2025,7 @@
             contentHtml += `<div class="media-error-text">${escapeHtml(errorMsg)}</div>`;
         }
 
-        if (hasCaption) {
+        if (hasCaption && !(['image', 'video'].includes(type) && directMediaUrl)) {
             contentHtml += `<div class="media-caption"><span>${escapeHtml(m.caption)}</span></div>`;
         }
 
@@ -1979,8 +2042,13 @@
             const hasCaption = Boolean(m.caption && String(m.caption).trim());
             const type = (m.type || '').toLowerCase();
             const hasDirectUrl = Boolean(m.s3_url) || Boolean(mediaLoaded[waMessageId]?.url) || (m.direction === 'out' && Boolean(m.media_view_url || m.url));
-            if (msgEl && !hasCaption && ['image', 'video'].includes(type) && hasDirectUrl) {
+            if (msgEl && ['image', 'video'].includes(type) && hasDirectUrl) {
                 msgEl.classList.add('msg-media-bubble');
+                if (hasCaption) {
+                    msgEl.classList.add('msg-media-captioned');
+                } else {
+                    msgEl.classList.remove('msg-media-captioned');
+                }
                 const bottomMeta = msgEl.querySelector(':scope > .msg-meta:not(.msg-meta-floating)');
                 if (bottomMeta) bottomMeta.remove();
             }
@@ -2009,7 +2077,8 @@
             return;
         }
         const viewParams = new URLSearchParams();
-        if (m.media_id && isValidMediaId(m.media_id)) viewParams.set('media_id', m.media_id);
+        const candidateMediaId = getCandidateMediaId(m);
+        if (candidateMediaId) viewParams.set('media_id', candidateMediaId);
         if (m.mime_type)  viewParams.set('mime_type', m.mime_type);
         if (m.type)       viewParams.set('type',      m.type);
         if (activeChatId) viewParams.set('wa_id',     activeChatId);
@@ -2128,8 +2197,9 @@
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
             // Send Firebase fields in body so backend uses media_id directly (no DB lookup needed)
+            const candidateMediaId = getCandidateMediaId(m);
             const postBody = {
-                media_id:  m.media_id  || null,
+                media_id:  candidateMediaId || null,
                 mime_type: m.mime_type || null,
                 type:      m.type      || null,
                 wa_id:     activeChatId || null,  // contact phone number

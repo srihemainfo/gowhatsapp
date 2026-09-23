@@ -1219,7 +1219,7 @@ class FBWhAutomationController extends Controller
 
             // --- Priority 2: Fall back to DB lookup if any field is missing ---
             if (!$mediaId || !$type) {
-                $mediaDetails = $this->getMediaDetails($waMessageId);
+                $mediaDetails = $this->getMediaDetails($waMessageId, $waId);
                 $mediaId  = $mediaId  ?: ($mediaDetails['media_id']  ?? null);
                 $mimeType = $mimeType ?: ($mediaDetails['mime_type']  ?? 'application/octet-stream');
                 $type     = $type     ?: ($mediaDetails['type']       ?? 'image');
@@ -1289,7 +1289,7 @@ class FBWhAutomationController extends Controller
 
             // --- Priority 2: Fall back to DB lookup if any field is missing ---
             if (!$mediaId || !$type) {
-                $mediaDetails = $this->getMediaDetails($waMessageId);
+                $mediaDetails = $this->getMediaDetails($waMessageId, $waId);
                 $mediaId  = $mediaId  ?: ($mediaDetails['media_id']  ?? null);
                 $mimeType = $mimeType ?: ($mediaDetails['mime_type']  ?? 'application/octet-stream');
                 $type     = $type     ?: ($mediaDetails['type']       ?? 'image');
@@ -1367,7 +1367,7 @@ class FBWhAutomationController extends Controller
         }
     }
 
-    private function getMediaDetails($waMessageId)
+    private function getMediaDetails($waMessageId, $waId = null)
     {
         $details = [
             'media_id' => null,
@@ -1375,7 +1375,7 @@ class FBWhAutomationController extends Controller
             'filename' => null,
             'caption' => null,
             'type' => null,
-            'wa_id' => null,
+            'wa_id' => $waId,
         ];
 
         try {
@@ -1392,11 +1392,40 @@ class FBWhAutomationController extends Controller
                     $raw = json_decode($msg->raw_payload, true);
                     $type = $msg->type ?? ($raw['type'] ?? null);
 
-                    if (!empty($type) && isset($raw[$type])) {
+                    if (!empty($type) && isset($raw[$type]) && is_array($raw[$type])) {
                         $details['media_id'] = $raw[$type]['id'] ?? null;
                         $details['mime_type'] = $raw[$type]['mime_type'] ?? null;
                         $details['filename'] = $raw[$type]['filename'] ?? null;
                         $details['caption'] = $raw[$type]['caption'] ?? null;
+                    }
+
+                    if (empty($details['media_id']) && is_array($raw)) {
+                        foreach (['image', 'video', 'audio', 'document', 'sticker'] as $mType) {
+                            if (!empty($raw[$mType]['id'])) {
+                                $details['media_id'] = $raw[$mType]['id'];
+                                $details['mime_type'] = $details['mime_type'] ?? ($raw[$mType]['mime_type'] ?? null);
+                                $details['filename'] = $details['filename'] ?? ($raw[$mType]['filename'] ?? null);
+                                $details['caption'] = $details['caption'] ?? ($raw[$mType]['caption'] ?? null);
+                                if (empty($details['type'])) $details['type'] = $mType;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback: If media_id is still not found, check Firestore directly
+            if (empty($details['media_id'])) {
+                $lookupWaId = $waId ?: ($details['wa_id'] ?? null);
+                if ($lookupWaId) {
+                    $fbDoc = $this->getFirestoreMessage($lookupWaId, $waMessageId);
+                    if ($fbDoc) {
+                        $details['media_id'] = $fbDoc['media_id'] ?? ($fbDoc['id'] ?? null);
+                        $details['mime_type'] = $details['mime_type'] ?: ($fbDoc['mime_type'] ?? null);
+                        $details['type'] = $details['type'] ?: ($fbDoc['type'] ?? null);
+                        $details['caption'] = $details['caption'] ?: ($fbDoc['caption'] ?? null);
+                        $details['filename'] = $details['filename'] ?: ($fbDoc['filename'] ?? null);
+                        $details['wa_id'] = $details['wa_id'] ?: $lookupWaId;
                     }
                 }
             }
@@ -1405,6 +1434,46 @@ class FBWhAutomationController extends Controller
         }
 
         return $details;
+    }
+
+    private function getFirestoreMessage($waId, $waMessageId)
+    {
+        try {
+            $projectId = $this->serviceAccount['project_id'] ?? null;
+            if (!$projectId) return null;
+
+            $accessToken = $this->getAccessToken();
+            if (!$accessToken) return null;
+
+            $safeMsgId = urlencode($waMessageId);
+            $docPath = "contacts/{$waId}/messages/{$safeMsgId}";
+            $url = "https://firestore.googleapis.com/v1/projects/{$projectId}/databases/(default)/documents/{$docPath}";
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $accessToken,
+                'Content-Type: application/json'
+            ]);
+            $res = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200 && $res) {
+                $json = json_decode($res, true);
+                if (!empty($json['fields']) && is_array($json['fields'])) {
+                    $docData = [];
+                    foreach ($json['fields'] as $key => $fieldVal) {
+                        $docData[$key] = $fieldVal['stringValue'] ?? ($fieldVal['integerValue'] ?? null);
+                    }
+                    return $docData;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('Get Firestore Message Error: ' . $e->getMessage());
+        }
+        return null;
     }
 
     private function downloadMediaFromMeta($mediaId, $waId = null)
