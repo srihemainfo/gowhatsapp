@@ -24,8 +24,7 @@ jobs:
           script: |
             set -e
 
-             cd /home/goridenetincwdin/gowhatsapp
-
+            cd /home/goridenetincwdin/gowhatsapp
 
             echo "=== Deployment started at $(date) ==="
 
@@ -37,5 +36,9 @@ jobs:
 
             git fetch origin master
             git reset --hard origin/master
+
+            echo "Clearing Laravel cache and optimizing..."
+            php artisan cache:clear
+            php artisan optimize:clear
 
             echo "=== Deployment finished successfully ==="
