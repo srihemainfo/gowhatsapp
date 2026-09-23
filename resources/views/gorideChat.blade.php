@@ -313,15 +313,35 @@
 
         /* Message Reactions Trigger & Pill */
         .msg-react-trigger {
-            position: absolute; top: 4px; right: -28px; width: 24px; height: 24px;
+            position: absolute; top: 4px; right: -26px; width: 26px; height: 26px;
             border-radius: 50%; background: #ffffff; border: 1px solid var(--border);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12); color: #8696a0; display: flex;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15); color: #667781; display: flex;
             align-items: center; justify-content: center; cursor: pointer; opacity: 0;
-            pointer-events: none; transition: all 0.15s ease; z-index: 10;
+            pointer-events: none; transition: opacity 0.2s ease, transform 0.15s ease; z-index: 20;
         }
 
-        .msg-out .msg-react-trigger { right: auto; left: -28px; }
-        .msg-react-trigger:hover { color: #111b21; transform: scale(1.15); background: #f0f2f5; }
+        /* Invisible bridge to prevent mouseleave when moving cursor from message bubble to trigger */
+        .msg-react-trigger::before {
+            content: ""; position: absolute; top: -10px; bottom: -10px;
+            left: -18px; right: -8px; z-index: -1;
+        }
+
+        .msg-out .msg-react-trigger { right: auto; left: -26px; }
+        .msg-out .msg-react-trigger::before { left: -8px; right: -18px; }
+
+        .msg:hover .msg-react-trigger,
+        .msg-react-trigger:hover,
+        .msg-react-trigger:focus,
+        .msg-react-trigger:active {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        .msg-react-trigger:hover {
+            color: #111b21;
+            transform: scale(1.18);
+            background: #f0f2f5;
+        }
 
         .msg-reaction-pill {
             position: absolute; bottom: -10px; right: 8px; background: #ffffff;
@@ -333,6 +353,74 @@
 
         .msg-in .msg-reaction-pill { right: auto; left: 8px; }
         .msg-reaction-pill:hover { transform: scale(1.2); }
+
+        /* Clean WhatsApp Media Bubbles */
+        .msg-media-bubble {
+            padding: 3px !important;
+            border-radius: 8px !important;
+            overflow: hidden;
+            display: inline-flex !important;
+            flex-direction: column;
+            width: fit-content;
+            max-width: 336px;
+        }
+
+        .msg-media-bubble .media-container {
+            margin-bottom: 0 !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            position: relative;
+        }
+
+        .msg-media-bubble .media-rendered-content {
+            position: relative;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .msg-media-bubble .chat-media-img {
+            max-width: 330px;
+            width: 100%;
+            height: auto;
+            max-height: 330px;
+            border-radius: 6px;
+            display: block;
+            object-fit: cover;
+        }
+
+        .msg-meta-floating {
+            position: absolute;
+            bottom: 7px;
+            right: 7px;
+            margin: 0 !important;
+            float: none !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(11, 20, 26, 0.48);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border-radius: 12px;
+            padding: 2px 7px;
+            color: #ffffff !important;
+            z-index: 5;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .msg-meta-floating .msg-time {
+            color: #ffffff !important;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .msg-meta-floating .msg-status svg {
+            width: 16px;
+            height: 15px;
+            margin-left: 2px;
+        }
 
         .reaction-floating-bar {
             position: fixed; background: #ffffff; border-radius: 24px;
@@ -598,6 +686,65 @@
         .input-box { flex: 1; background: var(--input-bg); border-radius: 8px; padding: 12px 16px; border: none; outline: none; font-size: 15px; }
         .icon-btn { background: none; border: none; color: #54656f; cursor: pointer; display: flex; align-items: center; }
 
+        .attach-btn-icon {
+            padding: 8px; border-radius: 50%; color: #54656f;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, color 0.15s;
+        }
+        .attach-btn-icon:hover {
+            background: rgba(11, 20, 26, 0.08); color: #111b21;
+        }
+
+        /* Voice Recording Bar & Animations */
+        .voice-record-bar {
+            display: none; flex: 1; align-items: center; justify-content: space-between;
+            background: var(--input-bg); border-radius: 8px; padding: 10px 16px; gap: 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08); animation: fadeIn 0.15s ease-out;
+        }
+
+        .voice-rec-dot {
+            width: 11px; height: 11px; border-radius: 50%; background: #ef4444;
+            display: inline-block; animation: voicePulse 1s infinite alternate;
+        }
+
+        @keyframes voicePulse {
+            0% { transform: scale(0.85); opacity: 0.45; }
+            100% { transform: scale(1.25); opacity: 1; }
+        }
+
+        .voice-rec-timer {
+            font-size: 14.5px; font-weight: 500; color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .voice-rec-waves {
+            display: flex; align-items: center; gap: 3.5px; flex: 1;
+            max-width: 120px; justify-content: center; height: 22px;
+        }
+
+        .voice-rec-waves span {
+            width: 3px; height: 14px; background: #8696a0; border-radius: 2px;
+            animation: waveBounce 1.2s infinite ease-in-out;
+        }
+        .voice-rec-waves span:nth-child(2) { animation-delay: 0.15s; height: 18px; }
+        .voice-rec-waves span:nth-child(3) { animation-delay: 0.3s; height: 12px; }
+        .voice-rec-waves span:nth-child(4) { animation-delay: 0.45s; height: 22px; }
+        .voice-rec-waves span:nth-child(5) { animation-delay: 0.6s; height: 16px; }
+        .voice-rec-waves span:nth-child(6) { animation-delay: 0.75s; height: 20px; }
+        .voice-rec-waves span:nth-child(7) { animation-delay: 0.9s; height: 11px; }
+
+        @keyframes waveBounce {
+            0%, 100% { transform: scaleY(0.4); opacity: 0.35; }
+            50% { transform: scaleY(1); opacity: 1; background: var(--accent-green); }
+        }
+
+        .voice-rec-cancel-btn {
+            background: none; border: none; color: #ef4444; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            padding: 6px; border-radius: 50%; transition: background 0.15s;
+        }
+        .voice-rec-cancel-btn:hover { background: rgba(239, 68, 68, 0.12); }
+
         .default-screen {
             display: flex;
             flex-direction: column;
@@ -818,13 +965,15 @@
             <div class="messages-container" id="messageDisplay"></div>
 
             <div class="footer">
-                <button class="icon-btn" onclick="openTemplateModal()" title="Send Template">
+                <button class="icon-btn" id="footerTemplateBtn" onclick="openTemplateModal()" title="Send Template">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"></path></svg>
                 </button>
 
-                <div style="position: relative;">
-                    <button class="icon-btn" id="attachBtn" onclick="toggleAttachMenu(event)" title="Attach media">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H10v9.5a3.5 3.5 0 0 0 7 0V5a4.5 4.5 0 0 0-9 0v12.5c0 3.31 2.69 6 6 6s6-2.69 6-6V6h-2z"/></svg>
+                <div style="position: relative;" id="footerAttachWrapper">
+                    <button class="icon-btn attach-btn-icon" id="attachBtn" onclick="toggleAttachMenu(event)" title="Attach media">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                        </svg>
                     </button>
                     <div id="attachMenu" class="attach-popup-menu" style="display:none;" onclick="event.stopPropagation()">
                         <div class="attach-menu-item" onclick="triggerMediaFile('image/*,video/*')">
@@ -852,8 +1001,25 @@
 
                 <textarea class="input-box" id="messageInput" placeholder="Type a message" rows="1" style="resize: none; overflow-y: auto; max-height: 120px; font-family: inherit;"></textarea>
 
-                <button class="icon-btn send-btn-round" id="sendBtn" onclick="sendMessage()" title="Send">
+                <div class="voice-record-bar" id="voiceRecordBar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span class="voice-rec-dot"></span>
+                        <span class="voice-rec-timer" id="voiceRecTimer">0:00</span>
+                    </div>
+                    <div class="voice-rec-waves">
+                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <button type="button" class="voice-rec-cancel-btn" onclick="cancelVoiceRecording()" title="Cancel recording">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                </div>
+
+                <button class="icon-btn send-btn-round" id="sendBtn" onclick="handleSendButtonClick()" title="Send" style="display:none;">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+                </button>
+
+                <button class="icon-btn send-btn-round" id="micBtn" onclick="startVoiceRecording()" title="Click to talk and send voice message">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                 </button>
             </div>
         </div>
@@ -1208,8 +1374,9 @@
         return d.toLocaleDateString('en-GB');
     }
 
-    function getTickSVG(status) {
-        const grey = 'var(--grey-tick)', blue = 'var(--blue-tick)';
+    function getTickSVG(status, isFloating = false) {
+        const grey = isFloating ? '#ffffff' : 'var(--grey-tick)';
+        const blue = isFloating ? '#53bdeb' : 'var(--blue-tick)';
         if (status === 'sent') return `<svg viewBox="0 0 24 24"><path fill="${grey}" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
         if (status === 'delivered' || status === 'read') return `<svg viewBox="0 0 24 24"><path fill="${status==='read'?blue:grey}" d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/></svg>`;
         return `<svg viewBox="0 0 24 24" style="width:15px;height:15px;"><path fill="${grey}" d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
@@ -1454,7 +1621,10 @@
         document.getElementById('chatSearch').value = '';
 
         const input = document.getElementById('messageInput');
+        input.value = '';
+        input.style.height = 'auto';
         input.focus();
+        resetVoiceRecordingUI();
 
         db.collection('contacts').doc(id).update({ unread_count: 0 }).catch(()=>{});
 
@@ -1494,14 +1664,21 @@
 
                     const isOut = m.direction === 'out';
                     const waId = m.wa_message_id || '';
+                    const hasCaption = Boolean(m.caption && String(m.caption).trim());
+                    const type = (m.type || '').toLowerCase();
+                    const isStoredOrLoaded = (m.media_status === 'stored') || Boolean(waId && mediaStored[waId]) || Boolean(waId && mediaLoaded[waId]?.url);
+                    const isVisualMediaNoCaption = !hasCaption && ['image', 'video'].includes(type) && isStoredOrLoaded;
+
                     const reactPillHtml = m.reaction ? `<div class="msg-reaction-pill" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="Reaction">${escapeHtml(m.reaction)}</div>` : '';
                     const reactBtnHtml = waId ? `<button type="button" class="msg-react-trigger" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="React"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>` : '';
 
                     if (isMediaMessage(m)) {
-                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}" data-wa-msg-id="${escapeHtml(waId)}">
+                        html += `<div class="msg ${isOut?'msg-out':'msg-in'} ${isVisualMediaNoCaption ? 'msg-media-bubble' : ''}" data-wa-msg-id="${escapeHtml(waId)}">
                             ${reactBtnHtml}
                             ${renderMediaMessageContent(m)}
+                            ${!isVisualMediaNoCaption ? `
                             <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
+                            ` : ''}
                             ${reactPillHtml}
                         </div>`;
                     } else {
@@ -1612,6 +1789,11 @@
                             onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to enlarge"
                             onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';" />
                         <div style="display:none;font-size:12px;color:#dc2626;padding:4px;">Image unavailable</div>
+                        ${!hasCaption ? `
+                        <div class="msg-meta msg-meta-floating">
+                            <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
+                            ${m.direction === 'out' ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
+                        </div>` : ''}
                     </div>`;
             } else if (type === 'video') {
                 contentHtml = `
@@ -1624,6 +1806,11 @@
                             <button type="button" class="video-expand-btn" onclick="openMediaLightbox('${escapeHtml(srcUrl)}', 'video')" title="Watch full screen">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
                             </button>
+                            ${!hasCaption ? `
+                            <div class="msg-meta msg-meta-floating" style="bottom: 10px; right: 10px;">
+                                <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
+                                ${m.direction === 'out' ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
+                            </div>` : ''}
                         </div>
                     </div>`;
             } else if (type === 'audio') {
@@ -1662,7 +1849,9 @@
                         <img src="${escapeHtml(srcUrl)}" alt="WhatsApp sticker" class="chat-media-sticker" />
                     </div>`;
             }
-            contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
+            if (m.direction !== 'out' && (hasCaption || !['image', 'video'].includes(type))) {
+                contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
+            }
 
         // === CASE 2: User clicked View and blob is ready ===
         } else if (loaded && loaded.url) {
@@ -1670,6 +1859,11 @@
                 contentHtml = `
                     <div class="media-rendered-content">
                         <img src="${escapeHtml(loaded.url)}" alt="WhatsApp image" class="chat-media-img" onclick="openMediaLightbox('${escapeHtml(loaded.url)}')" title="Click to enlarge" />
+                        ${!hasCaption ? `
+                        <div class="msg-meta msg-meta-floating">
+                            <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
+                            ${m.direction === 'out' ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
+                        </div>` : ''}
                     </div>`;
             } else if (type === 'video') {
                 contentHtml = `
@@ -1682,6 +1876,11 @@
                             <button type="button" class="video-expand-btn" onclick="openMediaLightbox('${escapeHtml(loaded.url)}', 'video')" title="Watch full screen">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
                             </button>
+                            ${!hasCaption ? `
+                            <div class="msg-meta msg-meta-floating" style="bottom: 10px; right: 10px;">
+                                <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
+                                ${m.direction === 'out' ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
+                            </div>` : ''}
                         </div>
                     </div>`;
             } else if (type === 'audio') {
@@ -1733,12 +1932,13 @@
                         <img src="${escapeHtml(loaded.url)}" alt="WhatsApp sticker" class="chat-media-sticker" />
                     </div>`;
             }
-            // After viewing: show Store button if not yet stored
-            contentHtml += `<div class="media-store-bar">
-                <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
-                    ${isLoadingStore ? 'Storing...' : 'Store in S3'}
-                </button>
-            </div>`;
+            if (m.direction !== 'out' && (hasCaption || !['image', 'video'].includes(type))) {
+                contentHtml += `<div class="media-store-bar">
+                    <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
+                        ${isLoadingStore ? 'Storing...' : 'Store in S3'}
+                    </button>
+                </div>`;
+            }
 
         // === CASE 3: Not stored, not yet loaded — show placeholder with View button ===
         } else {
@@ -1790,6 +1990,15 @@
         const m = chatMessagesMap[waMessageId];
         if (el && m) {
             el.outerHTML = renderMediaMessageContent(m);
+            const msgEl = document.querySelector(`.msg[data-wa-msg-id="${waMessageId}"]`);
+            const hasCaption = Boolean(m.caption && String(m.caption).trim());
+            const type = (m.type || '').toLowerCase();
+            const isStoredOrLoaded = (m.media_status === 'stored') || Boolean(waMessageId && mediaStored[waMessageId]) || Boolean(waMessageId && mediaLoaded[waMessageId]?.url);
+            if (msgEl && !hasCaption && ['image', 'video'].includes(type) && isStoredOrLoaded) {
+                msgEl.classList.add('msg-media-bubble');
+                const bottomMeta = msgEl.querySelector(':scope > .msg-meta:not(.msg-meta-floating)');
+                if (bottomMeta) bottomMeta.remove();
+            }
         }
     }
 
@@ -2307,20 +2516,68 @@
 
         // Optimistic media bubble in chat
         let previewHtml = '';
+        const isVisualMediaNoCaption = !caption && ['image', 'video'].includes(mediaType);
+
         if (mediaType === 'image') {
-            previewHtml = `<img src="${blobUrl}" class="chat-media-img" style="opacity: 0.7;">`;
+            previewHtml = `<div class="media-rendered-content">
+                <img src="${blobUrl}" class="chat-media-img" style="opacity: 0.85;">
+                ${isVisualMediaNoCaption ? `
+                <div class="msg-meta msg-meta-floating">
+                    <span class="msg-time">${formatTime(new Date())}</span>
+                    <span class="msg-status"><span class="spinner" style="width:12px; height:12px; border-width:2px; border-left-color:#fff;"></span></span>
+                </div>` : ''}
+            </div>`;
         } else if (mediaType === 'video') {
-            previewHtml = `<video src="${blobUrl}" controls class="chat-media-video" style="max-height: 200px; opacity: 0.7;"></video>`;
+            previewHtml = `<div class="media-rendered-content">
+                <div class="media-video-container">
+                    <video src="${blobUrl}" controls class="chat-media-video" style="max-height: 200px; opacity: 0.85;"></video>
+                    ${isVisualMediaNoCaption ? `
+                    <div class="msg-meta msg-meta-floating" style="bottom: 10px; right: 10px;">
+                        <span class="msg-time">${formatTime(new Date())}</span>
+                        <span class="msg-status"><span class="spinner" style="width:12px; height:12px; border-width:2px; border-left-color:#fff;"></span></span>
+                    </div>` : ''}
+                </div>
+            </div>`;
         } else if (mediaType === 'audio') {
-            previewHtml = `<audio src="${blobUrl}" controls style="width: 100%; opacity: 0.7;"></audio>`;
+            previewHtml = `
+                <div class="media-rendered-content">
+                    <div class="chat-vn-player">
+                        <button type="button" class="vn-play-circle" onclick="toggleAudioPlay(this, '${blobUrl}')">
+                            <svg class="vn-icon-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                            <svg class="vn-icon-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        </button>
+                        <div class="vn-track-wrapper" onclick="toggleAudioPlay(this.previousElementSibling, '${blobUrl}')">
+                            <div class="vn-waveform">
+                                <span class="vn-bar" style="height:35%"></span>
+                                <span class="vn-bar" style="height:65%"></span>
+                                <span class="vn-bar" style="height:100%"></span>
+                                <span class="vn-bar" style="height:60%"></span>
+                                <span class="vn-bar" style="height:85%"></span>
+                                <span class="vn-bar" style="height:50%"></span>
+                                <span class="vn-bar" style="height:90%"></span>
+                                <span class="vn-bar" style="height:40%"></span>
+                                <span class="vn-bar" style="height:75%"></span>
+                                <span class="vn-bar" style="height:55%"></span>
+                                <span class="vn-bar" style="height:95%"></span>
+                                <span class="vn-bar" style="height:45%"></span>
+                                <span class="vn-bar" style="height:80%"></span>
+                                <span class="vn-bar" style="height:65%"></span>
+                            </div>
+                            <div class="vn-timeline"><span class="vn-current-time">0:00</span><span>Voice message</span></div>
+                        </div>
+                        <audio preload="metadata" src="${blobUrl}" style="display:none;" ontimeupdate="onVnTimeUpdate(this)" onended="onVnEnded(this)" onloadedmetadata="onVnLoadedMeta(this)"></audio>
+                    </div>
+                </div>`;
         } else {
             previewHtml = `<div class="media-placeholder-card"><span class="media-placeholder-icon">📄</span><span class="media-doc-name">${escapeHtml(file.name)}</span></div>`;
         }
 
-        const msgHtml = `<div class="msg msg-out" id="${tempId}">
+        const msgHtml = `<div class="msg msg-out ${isVisualMediaNoCaption ? 'msg-media-bubble' : ''}" id="${tempId}">
             <div class="media-container">${previewHtml}</div>
             ${caption ? `<div class="media-caption"><span>${escapeHtml(caption)}</span></div>` : ''}
+            ${!isVisualMediaNoCaption ? `
             <div class="msg-meta"><span class="msg-time">${formatTime(new Date())}</span><span class="msg-status"><span class="spinner" style="width:12px; height:12px; border-width:2px;"></span></span></div>
+            ` : ''}
         </div>`;
         const box = document.getElementById('messageDisplay');
         box.insertAdjacentHTML('beforeend', msgHtml);
@@ -2350,7 +2607,7 @@
             if (res.ok && data && data.status) {
                 if (tempEl) {
                     const statusSpan = tempEl.querySelector('.msg-status');
-                    if (statusSpan) statusSpan.innerHTML = getTickSVG('sent');
+                    if (statusSpan) statusSpan.innerHTML = getTickSVG('sent', isVisualMediaNoCaption);
                     if (data.wa_message_id) {
                         tempEl.setAttribute('data-wa-msg-id', data.wa_message_id);
                         tempEl.id = 'media-content-' + data.wa_message_id;
@@ -2500,6 +2757,11 @@
         
         input.value = '';
         input.style.height = 'auto'; 
+
+        const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
+        if (sendBtn) sendBtn.style.display = 'none';
+        if (micBtn) micBtn.style.display = 'flex';
         
         try {
             await fetch('send-message', {
@@ -2582,6 +2844,7 @@
     }
 
     function goBack() { 
+        cancelVoiceRecording();
         document.getElementById('appContainer').classList.remove('show-chat'); 
         activeChatId = null; 
         document.getElementById('defaultScreen').style.display = 'flex';
@@ -2601,12 +2864,169 @@
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
         
-        const btn = document.getElementById('sendBtn');
-        if (btn) {
-            btn.style.opacity = this.value.trim().length > 0 ? "1" : "0.85";
-            btn.style.transform = this.value.trim().length > 0 ? "scale(1.05)" : "scale(1)";
+        const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
+        const hasText = this.value.trim().length > 0;
+        if (sendBtn && micBtn) {
+            sendBtn.style.display = hasText ? 'flex' : 'none';
+            micBtn.style.display = hasText ? 'none' : 'flex';
         }
     });
+
+    // ==========================================
+    // WHATSAPP VOICE RECORDING INTEGRATION
+    // ==========================================
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let voiceRecTimerInterval = null;
+    let voiceRecSeconds = 0;
+    let voiceStream = null;
+
+    async function startVoiceRecording() {
+        if (!activeChatId) {
+            alert("Please select a chat first.");
+            return;
+        }
+
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Audio recording is not supported in this browser or requires a secure context (HTTPS / localhost).");
+                return;
+            }
+
+            voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            let options = {};
+            if (typeof MediaRecorder !== 'undefined') {
+                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                    options = { mimeType: 'audio/webm;codecs=opus' };
+                } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+                    options = { mimeType: 'audio/ogg;codecs=opus' };
+                } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    options = { mimeType: 'audio/mp4' };
+                }
+            }
+
+            mediaRecorder = new MediaRecorder(voiceStream, options);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.start(100);
+
+            // Show recording UI, hide input & attach
+            const inputEl = document.getElementById('messageInput');
+            const attachWrapper = document.getElementById('footerAttachWrapper');
+            const templateBtn = document.getElementById('footerTemplateBtn');
+            const recBar = document.getElementById('voiceRecordBar');
+            const sendBtn = document.getElementById('sendBtn');
+            const micBtn = document.getElementById('micBtn');
+
+            if (inputEl) inputEl.style.display = 'none';
+            if (attachWrapper) attachWrapper.style.display = 'none';
+            if (templateBtn) templateBtn.style.display = 'none';
+            if (recBar) recBar.style.display = 'flex';
+            if (micBtn) micBtn.style.display = 'none';
+            if (sendBtn) sendBtn.style.display = 'flex';
+
+            // Start recording timer
+            voiceRecSeconds = 0;
+            document.getElementById('voiceRecTimer').innerText = '0:00';
+            clearInterval(voiceRecTimerInterval);
+            voiceRecTimerInterval = setInterval(() => {
+                voiceRecSeconds++;
+                const mins = Math.floor(voiceRecSeconds / 60);
+                const secs = voiceRecSeconds % 60;
+                document.getElementById('voiceRecTimer').innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }, 1000);
+
+        } catch (err) {
+            console.error("Microphone access error:", err);
+            alert("Could not access microphone: " + (err.message || "Please check browser mic permissions"));
+            resetVoiceRecordingUI();
+        }
+    }
+
+    function cancelVoiceRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.onstop = null; // Discard
+            mediaRecorder.stop();
+        }
+        stopVoiceStream();
+        resetVoiceRecordingUI();
+    }
+
+    function stopVoiceStream() {
+        if (voiceStream) {
+            voiceStream.getTracks().forEach(track => track.stop());
+            voiceStream = null;
+        }
+        clearInterval(voiceRecTimerInterval);
+    }
+
+    function resetVoiceRecordingUI() {
+        stopVoiceStream();
+        audioChunks = [];
+        const inputEl = document.getElementById('messageInput');
+        const attachWrapper = document.getElementById('footerAttachWrapper');
+        const templateBtn = document.getElementById('footerTemplateBtn');
+        const recBar = document.getElementById('voiceRecordBar');
+        const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
+
+        if (inputEl) inputEl.style.display = 'block';
+        if (attachWrapper) attachWrapper.style.display = 'block';
+        if (templateBtn) templateBtn.style.display = 'flex';
+        if (recBar) recBar.style.display = 'none';
+
+        const hasText = inputEl ? inputEl.value.trim().length > 0 : false;
+        if (sendBtn) sendBtn.style.display = hasText ? 'flex' : 'none';
+        if (micBtn) micBtn.style.display = hasText ? 'none' : 'flex';
+    }
+
+    async function finishAndSendVoiceRecording() {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            resetVoiceRecordingUI();
+            return;
+        }
+
+        const recordedSeconds = voiceRecSeconds;
+
+        mediaRecorder.onstop = async () => {
+            stopVoiceStream();
+
+            if (audioChunks.length === 0 || recordedSeconds < 1) {
+                resetVoiceRecordingUI();
+                return;
+            }
+
+            const mime = mediaRecorder.mimeType || 'audio/webm';
+            const cleanMime = mime.split(';')[0];
+            const ext = cleanMime.includes('ogg') ? 'ogg' : (cleanMime.includes('mp4') ? 'm4a' : 'webm');
+
+            const audioBlob = new Blob(audioChunks, { type: cleanMime });
+            const audioFile = new File([audioBlob], `voice_note_${Date.now()}.${ext}`, { type: cleanMime });
+
+            resetVoiceRecordingUI();
+
+            selectedMediaFile = audioFile;
+            await submitSendMedia();
+        };
+
+        mediaRecorder.stop();
+    }
+
+    function handleSendButtonClick() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            finishAndSendVoiceRecording();
+        } else {
+            sendMessage();
+        }
+    }
     async function syncTemplates() {
         const syncIconBtn = document.getElementById('syncIconBtn');
         const syncStatus = document.getElementById('syncStatus');
