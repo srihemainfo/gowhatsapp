@@ -361,26 +361,25 @@
             overflow: hidden;
             display: inline-flex !important;
             flex-direction: column;
-            width: fit-content;
-            min-width: 220px !important;
-            min-height: 140px !important;
-            max-width: 336px;
-            background: #f0f2f5;
+            width: fit-content !important;
+            max-width: 330px;
+            background: var(--incoming-msg);
+        }
+
+        .msg-out.msg-media-bubble {
+            background: var(--outgoing-msg) !important;
         }
 
         .msg-media-bubble .media-container {
             margin-bottom: 0 !important;
-            min-width: 220px !important;
-            min-height: 140px !important;
             max-width: 100% !important;
+            width: fit-content !important;
             position: relative;
         }
 
         .msg-media-bubble .media-rendered-content {
             position: relative;
-            width: 100%;
-            min-width: 220px;
-            min-height: 140px;
+            width: fit-content !important;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -388,15 +387,12 @@
 
         .msg-media-bubble .chat-media-img {
             max-width: 330px;
-            width: 100%;
-            min-width: 220px;
-            min-height: 140px;
-            height: auto;
             max-height: 330px;
+            width: auto;
+            height: auto;
             border-radius: 6px;
             display: block;
-            object-fit: cover;
-            background: #e9edef;
+            object-fit: contain;
         }
 
         .msg-meta-floating {
@@ -534,13 +530,13 @@
 
         /* Fixed Video Container */
         .media-video-container {
-            position: relative; width: 100%; min-width: 220px; min-height: 160px; max-width: 320px; max-height: 240px;
-            border-radius: 8px; overflow: hidden; background: #0b141a;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;
+            position: relative; max-width: 330px; max-height: 330px; width: fit-content; height: fit-content;
+            border-radius: 6px; overflow: hidden; background: #000;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: inline-flex; align-items: center; justify-content: center;
         }
 
         .chat-media-video {
-            width: 100%; min-width: 220px; min-height: 160px; max-width: 320px; max-height: 240px; border-radius: 8px;
+            max-width: 330px; max-height: 330px; width: auto; height: auto; border-radius: 6px;
             display: block; background: #000; object-fit: contain;
         }
 
@@ -1799,6 +1795,7 @@
                     <div class="media-rendered-content">
                         <img src="${escapeHtml(srcUrl)}" alt="WhatsApp image" class="chat-media-img"
                             onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to enlarge"
+                            onload="const b = document.getElementById('messageDisplay'); if(b) b.scrollTop = b.scrollHeight;"
                             onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'media-placeholder-card\\'><div class=\\'media-placeholder-info\\'><span class=\\'media-placeholder-icon\\'>🖼️</span><span class=\\'media-placeholder-title\\'>Image</span></div><div class=\\'media-actions\\'><button type=\\'button\\' class=\\'media-btn media-btn-primary\\' onclick=\\'viewMedia(\\' + JSON.stringify(\\'${escapeHtml(waId)}\\') + \\')\\'>View Image</button></div></div>';" />
                         ${!hasCaption ? `
                         <div class="msg-meta msg-meta-floating">
@@ -1810,7 +1807,7 @@
                 contentHtml = `
                     <div class="media-rendered-content">
                         <div class="media-video-container">
-                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(srcUrl)}">
+                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(srcUrl)}" onloadedmetadata="const b = document.getElementById('messageDisplay'); if(b) b.scrollTop = b.scrollHeight;">
                                 <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
                                 Your browser does not support HTML video.
                             </video>
