@@ -1810,15 +1810,39 @@
     function getCandidateMediaId(m) {
         if (!m) return null;
         const type = (m.type || '').toLowerCase();
-        const candidate = m.media_id 
-            || m.mediaId 
-            || (m[type] && m[type].id)
-            || (m.image && m.image.id)
-            || (m.video && m.video.id)
-            || (m.audio && m.audio.id)
-            || (m.document && m.document.id)
-            || (m.sticker && m.sticker.id)
-            || (m.id && !String(m.id).startsWith('wamid.') && !String(m.id).startsWith('out_') ? m.id : null);
+
+        let candidate = m.media_id || m.mediaId;
+
+        const checkObj = (obj) => {
+            if (!obj) return null;
+            if (typeof obj === 'string') {
+                try { obj = JSON.parse(obj); } catch(e) { return null; }
+            }
+            if (typeof obj === 'object') {
+                return obj.id || obj.media_id || (obj[type] && (obj[type].id || obj[type].media_id)) || null;
+            }
+            return null;
+        };
+
+        if (!candidate) candidate = checkObj(m[type]);
+        if (!candidate) candidate = checkObj(m.image);
+        if (!candidate) candidate = checkObj(m.video);
+        if (!candidate) candidate = checkObj(m.audio);
+        if (!candidate) candidate = checkObj(m.document);
+        if (!candidate) candidate = checkObj(m.raw_payload);
+        if (!candidate) candidate = checkObj(m.payload);
+
+        if (!candidate && m.media_view_url && m.media_view_url.includes('media_id=')) {
+            try {
+                const u = new URL(m.media_view_url);
+                candidate = u.searchParams.get('media_id');
+            } catch(e) {}
+        }
+
+        if (!candidate && m.id && !String(m.id).startsWith('wamid.') && !String(m.id).startsWith('out_')) {
+            candidate = m.id;
+        }
+
         if (candidate && isValidMediaId(candidate)) return String(candidate).trim();
         return null;
     }
@@ -2082,6 +2106,8 @@
         if (m.mime_type)  viewParams.set('mime_type', m.mime_type);
         if (m.type)       viewParams.set('type',      m.type);
         if (activeChatId) viewParams.set('wa_id',     activeChatId);
+        if (m.caption)    viewParams.set('caption',   m.caption);
+        if (m.timestamp)  viewParams.set('timestamp', String(m.timestamp));
         const paramStr = viewParams.toString();
         if (paramStr) viewUrl += (viewUrl.includes('?') ? '&' : '?') + paramStr;
 
@@ -2954,12 +2980,14 @@
             
             let options = {};
             if (typeof MediaRecorder !== 'undefined') {
-                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-                    options = { mimeType: 'audio/webm;codecs=opus' };
+                if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    options = { mimeType: 'audio/mp4' };
+                } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+                    options = { mimeType: 'audio/aac' };
                 } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
                     options = { mimeType: 'audio/ogg;codecs=opus' };
-                } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-                    options = { mimeType: 'audio/mp4' };
+                } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                    options = { mimeType: 'audio/webm;codecs=opus' };
                 }
             }
 
@@ -3060,9 +3088,9 @@
                 return;
             }
 
-            const mime = mediaRecorder.mimeType || 'audio/webm';
+            const mime = mediaRecorder.mimeType || 'audio/mp4';
             const cleanMime = mime.split(';')[0];
-            const ext = cleanMime.includes('ogg') ? 'ogg' : (cleanMime.includes('mp4') ? 'm4a' : 'webm');
+            const ext = cleanMime.includes('mp4') || cleanMime.includes('m4a') || cleanMime.includes('aac') ? 'm4a' : (cleanMime.includes('ogg') ? 'ogg' : 'webm');
 
             const audioBlob = new Blob(audioChunks, { type: cleanMime });
             const audioFile = new File([audioBlob], `voice_note_${Date.now()}.${ext}`, { type: cleanMime });

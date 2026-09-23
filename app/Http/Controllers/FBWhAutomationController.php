@@ -178,6 +178,34 @@ class FBWhAutomationController extends Controller
             $s3Key = "{$folder}/{$safeMsgId}.{$ext}";
             $fileBinary = file_get_contents($file->getRealPath());
 
+            // Handle audio formats for Meta WhatsApp API compliance
+            if ($mediaType === 'audio') {
+                if (str_contains($mimeType, 'webm') || str_ends_with(strtolower($originalFilename), '.webm')) {
+                    // Try ffmpeg conversion to ogg opus if available on system
+                    $tempIn = tempnam(sys_get_temp_dir(), 'vn_in_') . '.webm';
+                    $tempOut = tempnam(sys_get_temp_dir(), 'vn_out_') . '.ogg';
+                    file_put_contents($tempIn, $fileBinary);
+                    @exec("ffmpeg -y -i " . escapeshellarg($tempIn) . " -c:a libopus -b:a 32k " . escapeshellarg($tempOut) . " 2>&1", $ffOut, $ffRet);
+                    if ($ffRet === 0 && file_exists($tempOut) && filesize($tempOut) > 0) {
+                        $fileBinary = file_get_contents($tempOut);
+                        $mimeType = 'audio/ogg; codecs=opus';
+                        $ext = 'ogg';
+                        $originalFilename = preg_replace('/\.webm$/i', '.ogg', $originalFilename);
+                        @unlink($tempOut);
+                    } else {
+                        // In case ffmpeg is unavailable, prepare as audio/ogg for Meta upload
+                        $mimeType = 'audio/ogg';
+                        $ext = 'ogg';
+                    }
+                    @unlink($tempIn);
+                }
+            }
+
+            // Upload directly to S3
+            $s3 = new AwsS3Service();
+            $folder = $s3->getFolderForType($mediaType);
+            $s3Key = "{$folder}/{$safeMsgId}.{$ext}";
+
             $uploaded = $s3->put($s3Key, $fileBinary, $mimeType);
             if (!$uploaded) {
                 return response()->json(['status' => false, 'error' => 'Failed to store media in S3 cloud']);
@@ -209,7 +237,7 @@ class FBWhAutomationController extends Controller
 
             $res = $response->json();
 
-            // Fallback to Meta /media upload if link is rejected
+            // Fallback 1: Direct /media upload to Meta if link dispatch failed
             if ($response->failed()) {
                 Log::warning('WhatsApp media link dispatch failed, trying direct /media upload', ['response' => $res]);
                 $uploadRes = Http::withToken($token)->timeout(30)
@@ -235,6 +263,29 @@ class FBWhAutomationController extends Controller
                         );
                         $res = $response->json();
                     }
+                }
+            }
+
+            // Fallback 2: If Meta still rejected audio, send as document so message is NEVER lost
+            if ($response->failed() && $mediaType === 'audio') {
+                Log::warning('Retrying audio delivery as WhatsApp document fallback', ['error' => $res]);
+                $docPayload = [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type'    => 'individual',
+                    'to'                => $to,
+                    'type'              => 'document',
+                    'document'          => [
+                        'link'     => $s3Url,
+                        'filename' => $originalFilename ?: 'voice_note.ogg'
+                    ]
+                ];
+                $docRes = Http::withToken($token)->timeout(25)->post(
+                    "https://graph.facebook.com/{$ver}/{$phone_number_id}/messages",
+                    $docPayload
+                );
+                if ($docRes->successful()) {
+                    $response = $docRes;
+                    $res = $response->json();
                 }
             }
 
@@ -1380,6 +1431,18 @@ class FBWhAutomationController extends Controller
 
         try {
             $msg = DB::table('wa_messages')->where('wa_message_id', $waMessageId)->first();
+            if (!$msg) {
+                $msg = DB::table('wa_messages')->where('wa_message_id', urldecode($waMessageId))->first();
+            }
+            if (!$msg && !empty($waId)) {
+                $msg = DB::table('wa_messages')
+                    ->join('wa_conversations', 'wa_conversations.id', '=', 'wa_messages.conversation_id')
+                    ->where('wa_conversations.wa_id', $waId)
+                    ->whereNotNull('wa_messages.raw_payload')
+                    ->orderBy('wa_messages.id', 'desc')
+                    ->first();
+            }
+
             if ($msg) {
                 $details['type'] = $msg->type ?? null;
 
@@ -1411,10 +1474,19 @@ class FBWhAutomationController extends Controller
                             }
                         }
                     }
+
+                    // Deep recursive search for any numeric media ID (12-25 digits)
+                    if (empty($details['media_id']) && is_array($raw)) {
+                        array_walk_recursive($raw, function($val, $key) use (&$details) {
+                            if (empty($details['media_id']) && ($key === 'id' || $key === 'media_id') && (is_string($val) || is_numeric($val)) && preg_match('/^\d{12,25}$/', (string)$val)) {
+                                $details['media_id'] = (string)$val;
+                            }
+                        });
+                    }
                 }
             }
 
-            // Fallback: If media_id is still not found, check Firestore directly
+            // Fallback: Check Firestore directly
             if (empty($details['media_id'])) {
                 $lookupWaId = $waId ?: ($details['wa_id'] ?? null);
                 if ($lookupWaId) {
@@ -1467,7 +1539,48 @@ class FBWhAutomationController extends Controller
                     foreach ($json['fields'] as $key => $fieldVal) {
                         $docData[$key] = $fieldVal['stringValue'] ?? ($fieldVal['integerValue'] ?? null);
                     }
-                    return $docData;
+                    if (!empty($docData['media_id'])) return $docData;
+                }
+            }
+
+            // Fallback: scan recent 30 messages in contacts/{waId}/messages
+            $listUrl = "https://firestore.googleapis.com/v1/projects/{$projectId}/databases/(default)/documents/contacts/{$waId}/messages?pageSize=30";
+            $ch2 = curl_init($listUrl);
+            curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch2, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch2, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $accessToken,
+                'Content-Type: application/json'
+            ]);
+            $listRes = curl_exec($ch2);
+            curl_close($ch2);
+
+            if ($listRes) {
+                $listJson = json_decode($listRes, true);
+                if (!empty($listJson['documents'])) {
+                    foreach ($listJson['documents'] as $doc) {
+                        $f = $doc['fields'] ?? [];
+                        $msgWaId = $f['wa_message_id']['stringValue'] ?? '';
+                        if ($msgWaId === $waMessageId || $msgWaId === urldecode($waMessageId) || str_contains($doc['name'] ?? '', $waMessageId)) {
+                            $docData = [];
+                            foreach ($f as $k => $fv) {
+                                $docData[$k] = $fv['stringValue'] ?? ($fv['integerValue'] ?? null);
+                            }
+                            if (!empty($docData['media_id'])) return $docData;
+                        }
+                    }
+
+                    // If still not matched, grab the latest document that has a media_id
+                    foreach ($listJson['documents'] as $doc) {
+                        $f = $doc['fields'] ?? [];
+                        if (!empty($f['media_id']['stringValue'])) {
+                            $docData = [];
+                            foreach ($f as $k => $fv) {
+                                $docData[$k] = $fv['stringValue'] ?? ($fv['integerValue'] ?? null);
+                            }
+                            return $docData;
+                        }
+                    }
                 }
             }
         } catch (\Throwable $e) {
