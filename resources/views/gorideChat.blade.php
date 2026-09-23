@@ -362,12 +362,16 @@
             display: inline-flex !important;
             flex-direction: column;
             width: fit-content;
+            min-width: 220px !important;
+            min-height: 140px !important;
             max-width: 336px;
+            background: #f0f2f5;
         }
 
         .msg-media-bubble .media-container {
             margin-bottom: 0 !important;
-            min-width: 0 !important;
+            min-width: 220px !important;
+            min-height: 140px !important;
             max-width: 100% !important;
             position: relative;
         }
@@ -375,6 +379,8 @@
         .msg-media-bubble .media-rendered-content {
             position: relative;
             width: 100%;
+            min-width: 220px;
+            min-height: 140px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -383,11 +389,14 @@
         .msg-media-bubble .chat-media-img {
             max-width: 330px;
             width: 100%;
+            min-width: 220px;
+            min-height: 140px;
             height: auto;
             max-height: 330px;
             border-radius: 6px;
             display: block;
             object-fit: cover;
+            background: #e9edef;
         }
 
         .msg-meta-floating {
@@ -525,13 +534,13 @@
 
         /* Fixed Video Container */
         .media-video-container {
-            position: relative; width: 100%; max-width: 320px; max-height: 240px;
+            position: relative; width: 100%; min-width: 220px; min-height: 160px; max-width: 320px; max-height: 240px;
             border-radius: 8px; overflow: hidden; background: #0b141a;
             box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;
         }
 
         .chat-media-video {
-            width: 100%; max-width: 320px; max-height: 240px; border-radius: 8px;
+            width: 100%; min-width: 220px; min-height: 160px; max-width: 320px; max-height: 240px; border-radius: 8px;
             display: block; background: #000; object-fit: contain;
         }
 
@@ -674,13 +683,21 @@
 
         .lightbox-btn:hover { background: #00a884; transform: scale(1.1); }
 
-        .send-btn-round {
-            width: 40px; height: 40px; border-radius: 50%; background: var(--accent-green);
-            color: #ffffff !important; display: flex; align-items: center; justify-content: center;
-            transition: background 0.15s, transform 0.15s; flex-shrink: 0;
+        .send-btn-round, #micBtn, #sendBtn {
+            width: 42px !important; height: 42px !important; min-width: 42px !important; min-height: 42px !important;
+            border-radius: 50% !important; background: #00a884 !important;
+            color: #ffffff !important; border: none !important; align-items: center !important; justify-content: center !important;
+            cursor: pointer !important; transition: background 0.15s, transform 0.15s !important; flex-shrink: 0 !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
         }
 
-        .send-btn-round:hover { background: #008069; transform: scale(1.06); }
+        .send-btn-round:hover, #micBtn:hover, #sendBtn:hover {
+            background: #008069 !important; transform: scale(1.08) !important;
+        }
+
+        #micBtn svg, #sendBtn svg {
+            color: #ffffff !important; fill: #ffffff !important;
+        }
 
         .footer { min-height: 62px; background: var(--header-bg); display: flex; align-items: center; padding: 10px 16px; z-index: 2; gap: 10px; }
         .input-box { flex: 1; background: var(--input-bg); border-radius: 8px; padding: 12px 16px; border: none; outline: none; font-size: 15px; }
@@ -1014,11 +1031,11 @@
                     </button>
                 </div>
 
-                <button class="icon-btn send-btn-round" id="sendBtn" onclick="handleSendButtonClick()" title="Send" style="display:none;">
+                <button class="send-btn-round" id="sendBtn" onclick="handleSendButtonClick()" title="Send" style="display:none;">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
                 </button>
 
-                <button class="icon-btn send-btn-round" id="micBtn" onclick="startVoiceRecording()" title="Click to talk and send voice message">
+                <button class="send-btn-round" id="micBtn" onclick="startVoiceRecording()" title="Click to talk and send voice message" style="display:flex;">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                 </button>
             </div>
@@ -1666,8 +1683,10 @@
                     const waId = m.wa_message_id || '';
                     const hasCaption = Boolean(m.caption && String(m.caption).trim());
                     const type = (m.type || '').toLowerCase();
-                    const isStoredOrLoaded = (m.media_status === 'stored') || Boolean(waId && mediaStored[waId]) || Boolean(waId && mediaLoaded[waId]?.url);
-                    const isVisualMediaNoCaption = !hasCaption && ['image', 'video'].includes(type) && isStoredOrLoaded;
+                    // Direct URL check: S3 URL is present, or blob URL loaded in memory, or outgoing media preview
+                    const hasDirectMediaUrl = Boolean(m.s3_url) || Boolean(waId && mediaLoaded[waId]?.url) || (isOut && Boolean(m.media_view_url || m.url));
+                    // Only use floating media bubble for images/videos that actually have a ready direct URL and no caption
+                    const isVisualMediaNoCaption = !hasCaption && ['image', 'video'].includes(type) && hasDirectMediaUrl;
 
                     const reactPillHtml = m.reaction ? `<div class="msg-reaction-pill" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="Reaction">${escapeHtml(m.reaction)}</div>` : '';
                     const reactBtnHtml = waId ? `<button type="button" class="msg-react-trigger" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="React"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>` : '';
@@ -1765,34 +1784,26 @@
 
         let contentHtml = '';
 
-        // === CASE 1: Already stored in S3 — render inline using s3_url (direct) or /view as fallback ===
-        if (isStored && ['image', 'video', 'audio', 'sticker'].includes(type)) {
-            // Best URL: s3_url from Firebase (public), or from mediaLoaded (just stored), or /view endpoint
-            const s3Direct = m.s3_url || (mediaLoaded[waId] && mediaLoaded[waId].url) || null;
-            let srcUrl = s3Direct;
-            if (!srcUrl && viewUrl) {
-                // fallback: /view endpoint with type/mime hints so backend finds correct S3 key
-                const p = new URLSearchParams();
-                if (m.type) p.set('type', m.type);
-                if (m.mime_type) p.set('mime_type', m.mime_type);
-                if (m.media_id && isValidMediaId(m.media_id)) p.set('media_id', m.media_id);
-                if (activeChatId) p.set('wa_id', activeChatId);
-                srcUrl = viewUrl + (p.toString() ? '?' + p.toString() : '');
-            }
-            if (!srcUrl) {
-                // No URL available at all — fall back to placeholder
-                contentHtml = `<div class="media-placeholder-card"><div class="media-placeholder-info"><span class="media-placeholder-icon">🖼️</span><span class="media-placeholder-title">Stored</span></div></div>`;
-            } else if (type === 'image') {
+        // Direct URL is available when:
+        // 1. m.s3_url is set (stored in AWS S3)
+        // 2. mediaLoaded[waId]?.url is set (user clicked View or just stored)
+        // 3. Outgoing message with local preview URL (m.media_view_url or m.url)
+        const isOut = m.direction === 'out';
+        const directMediaUrl = m.s3_url || (mediaLoaded[waId] && mediaLoaded[waId].url) || (isOut && (m.media_view_url || m.url)) || null;
+
+        // === CASE 1: Direct URL is ready — render inline image / video / audio / sticker ===
+        if (directMediaUrl && ['image', 'video', 'audio', 'sticker'].includes(type)) {
+            const srcUrl = directMediaUrl;
+            if (type === 'image') {
                 contentHtml = `
                     <div class="media-rendered-content">
                         <img src="${escapeHtml(srcUrl)}" alt="WhatsApp image" class="chat-media-img"
                             onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to enlarge"
-                            onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';" />
-                        <div style="display:none;font-size:12px;color:#dc2626;padding:4px;">Image unavailable</div>
+                            onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'media-placeholder-card\\'><div class=\\'media-placeholder-info\\'><span class=\\'media-placeholder-icon\\'>🖼️</span><span class=\\'media-placeholder-title\\'>Image</span></div><div class=\\'media-actions\\'><button type=\\'button\\' class=\\'media-btn media-btn-primary\\' onclick=\\'viewMedia(\\' + JSON.stringify(\\'${escapeHtml(waId)}\\') + \\')\\'>View Image</button></div></div>';" />
                         ${!hasCaption ? `
                         <div class="msg-meta msg-meta-floating">
                             <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
-                            ${m.direction === 'out' ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
+                            ${isOut ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
                         </div>` : ''}
                     </div>`;
             } else if (type === 'video') {
@@ -1809,7 +1820,7 @@
                             ${!hasCaption ? `
                             <div class="msg-meta msg-meta-floating" style="bottom: 10px; right: 10px;">
                                 <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
-                                ${m.direction === 'out' ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
+                                ${isOut ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
                             </div>` : ''}
                         </div>
                     </div>`;
@@ -1849,90 +1860,10 @@
                         <img src="${escapeHtml(srcUrl)}" alt="WhatsApp sticker" class="chat-media-sticker" />
                     </div>`;
             }
-            if (m.direction !== 'out' && (hasCaption || !['image', 'video'].includes(type))) {
-                contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
-            }
 
-        // === CASE 2: User clicked View and blob is ready ===
-        } else if (loaded && loaded.url) {
-            if (type === 'image') {
-                contentHtml = `
-                    <div class="media-rendered-content">
-                        <img src="${escapeHtml(loaded.url)}" alt="WhatsApp image" class="chat-media-img" onclick="openMediaLightbox('${escapeHtml(loaded.url)}')" title="Click to enlarge" />
-                        ${!hasCaption ? `
-                        <div class="msg-meta msg-meta-floating">
-                            <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
-                            ${m.direction === 'out' ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
-                        </div>` : ''}
-                    </div>`;
-            } else if (type === 'video') {
-                contentHtml = `
-                    <div class="media-rendered-content">
-                        <div class="media-video-container">
-                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(loaded.url)}">
-                                <source src="${escapeHtml(loaded.url)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
-                                Your browser does not support HTML video.
-                            </video>
-                            <button type="button" class="video-expand-btn" onclick="openMediaLightbox('${escapeHtml(loaded.url)}', 'video')" title="Watch full screen">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-                            </button>
-                            ${!hasCaption ? `
-                            <div class="msg-meta msg-meta-floating" style="bottom: 10px; right: 10px;">
-                                <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
-                                ${m.direction === 'out' ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
-                            </div>` : ''}
-                        </div>
-                    </div>`;
-            } else if (type === 'audio') {
-                contentHtml = `
-                    <div class="media-rendered-content">
-                        <div class="chat-vn-player" data-wa-id="${escapeHtml(waId)}">
-                            <button type="button" class="vn-play-circle" onclick="toggleAudioPlay(this, '${escapeHtml(loaded.url)}')">
-                                <svg class="vn-icon-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                                <svg class="vn-icon-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                            </button>
-                            <div class="vn-track-wrapper" onclick="toggleAudioPlay(this.previousElementSibling, '${escapeHtml(loaded.url)}')">
-                                <div class="vn-waveform">
-                                    <span class="vn-bar" style="height:35%"></span>
-                                    <span class="vn-bar" style="height:65%"></span>
-                                    <span class="vn-bar" style="height:100%"></span>
-                                    <span class="vn-bar" style="height:60%"></span>
-                                    <span class="vn-bar" style="height:85%"></span>
-                                    <span class="vn-bar" style="height:50%"></span>
-                                    <span class="vn-bar" style="height:90%"></span>
-                                    <span class="vn-bar" style="height:40%"></span>
-                                    <span class="vn-bar" style="height:75%"></span>
-                                    <span class="vn-bar" style="height:55%"></span>
-                                    <span class="vn-bar" style="height:95%"></span>
-                                    <span class="vn-bar" style="height:45%"></span>
-                                    <span class="vn-bar" style="height:80%"></span>
-                                    <span class="vn-bar" style="height:65%"></span>
-                                </div>
-                                <div class="vn-timeline"><span class="vn-current-time">0:00</span><span>Voice message</span></div>
-                            </div>
-                            <audio preload="metadata" src="${escapeHtml(loaded.url)}" style="display:none;" ontimeupdate="onVnTimeUpdate(this)" onended="onVnEnded(this)" onloadedmetadata="onVnLoadedMeta(this)"></audio>
-                        </div>
-                    </div>`;
-            } else if (type === 'document') {
-                contentHtml = `
-                    <div class="media-placeholder-card">
-                        <div class="media-placeholder-info">
-                            <span class="media-placeholder-icon">📄</span>
-                            <span class="media-doc-name" title="${escapeHtml(m.filename || 'Document')}">${escapeHtml(m.filename || 'Document')}</span>
-                        </div>
-                        <div class="media-actions">
-                            <button type="button" class="media-btn media-btn-primary" onclick="viewMedia('${escapeHtml(waId)}')">
-                                Open Document
-                            </button>
-                        </div>
-                    </div>`;
-            } else if (type === 'sticker') {
-                contentHtml = `
-                    <div class="media-rendered-content">
-                        <img src="${escapeHtml(loaded.url)}" alt="WhatsApp sticker" class="chat-media-sticker" />
-                    </div>`;
-            }
-            if (m.direction !== 'out' && (hasCaption || !['image', 'video'].includes(type))) {
+            if (!isOut && isStored && (hasCaption || !['image', 'video'].includes(type))) {
+                contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
+            } else if (!isOut && !isStored && (hasCaption || !['image', 'video'].includes(type))) {
                 contentHtml += `<div class="media-store-bar">
                     <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
                         ${isLoadingStore ? 'Storing...' : 'Store in S3'}
@@ -1940,7 +1871,30 @@
                 </div>`;
             }
 
-        // === CASE 3: Not stored, not yet loaded — show placeholder with View button ===
+        // === CASE 2: Document loaded ===
+        } else if (loaded && loaded.url && type === 'document') {
+            contentHtml = `
+                <div class="media-placeholder-card">
+                    <div class="media-placeholder-info">
+                        <span class="media-placeholder-icon">📄</span>
+                        <span class="media-doc-name" title="${escapeHtml(m.filename || 'Document')}">${escapeHtml(m.filename || 'Document')}</span>
+                    </div>
+                    <div class="media-actions">
+                        <button type="button" class="media-btn media-btn-primary" onclick="viewMedia('${escapeHtml(waId)}')">
+                            Open Document
+                        </button>
+                    </div>
+                </div>`;
+            if (!isOut) {
+                contentHtml += `<div class="media-store-bar">
+                    ${isStored ? `<span class="media-stored-badge">✓ Stored</span>` : `
+                    <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
+                        ${isLoadingStore ? 'Storing...' : 'Store in S3'}
+                    </button>`}
+                </div>`;
+            }
+
+        // === CASE 3: Not yet loaded / No direct URL — show placeholder card with View / Store buttons ===
         } else {
             let icon = '🖼️', title = 'Image';
             if (type === 'video')    { icon = '🎥'; title = 'Video'; }
@@ -1993,8 +1947,8 @@
             const msgEl = document.querySelector(`.msg[data-wa-msg-id="${waMessageId}"]`);
             const hasCaption = Boolean(m.caption && String(m.caption).trim());
             const type = (m.type || '').toLowerCase();
-            const isStoredOrLoaded = (m.media_status === 'stored') || Boolean(waMessageId && mediaStored[waMessageId]) || Boolean(waMessageId && mediaLoaded[waMessageId]?.url);
-            if (msgEl && !hasCaption && ['image', 'video'].includes(type) && isStoredOrLoaded) {
+            const hasDirectUrl = Boolean(m.s3_url) || Boolean(mediaLoaded[waMessageId]?.url) || (m.direction === 'out' && Boolean(m.media_view_url || m.url));
+            if (msgEl && !hasCaption && ['image', 'video'].includes(type) && hasDirectUrl) {
                 msgEl.classList.add('msg-media-bubble');
                 const bottomMeta = msgEl.querySelector(':scope > .msg-meta:not(.msg-meta-floating)');
                 if (bottomMeta) bottomMeta.remove();
