@@ -152,7 +152,12 @@ class FBWhAutomationController extends Controller
 
             // Determine media type
             $mediaType = 'document';
-            if (str_starts_with($mimeType, 'image/')) {
+            if ($typeOverride === 'audio' || str_starts_with($originalFilename, 'voice_note_') || str_contains($mimeType, 'audio')) {
+                $mediaType = 'audio';
+                if ($mimeType === 'video/webm' || str_contains($mimeType, 'webm')) {
+                    $mimeType = 'audio/webm';
+                }
+            } elseif (str_starts_with($mimeType, 'image/')) {
                 $mediaType = 'image';
             } elseif (str_starts_with($mimeType, 'video/')) {
                 $mediaType = 'video';
@@ -1251,7 +1256,7 @@ class FBWhAutomationController extends Controller
                 return response()->json([
                     'status' => false,
                     'error'  => $downloadResult['error'] ?? 'Unable to fetch media from Meta'
-                ], 502);
+                ], 200);
             }
 
             $binary    = $downloadResult['data'];
@@ -1326,7 +1331,7 @@ class FBWhAutomationController extends Controller
                 return response()->json([
                     'status' => false,
                     'error'  => $downloadResult['error'] ?? 'Unable to fetch media from Meta'
-                ], 502);
+                ], 200);
             }
 
             $binary    = $downloadResult['data'];

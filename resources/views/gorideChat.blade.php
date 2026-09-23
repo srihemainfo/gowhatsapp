@@ -69,11 +69,17 @@
 
         .header {
             height: 60px;
+            min-height: 60px !important;
+            flex-shrink: 0 !important;
             background: var(--header-bg);
             display: flex;
             align-items: center;
             padding: 0 16px;
             border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            width: 100%;
         }
 
         .brand-logo { height: 28px; width: auto; }
@@ -362,6 +368,8 @@
             display: inline-flex !important;
             flex-direction: column;
             width: fit-content !important;
+            min-width: 220px !important;
+            min-height: 160px !important;
             max-width: 330px;
             background: var(--incoming-msg);
         }
@@ -374,25 +382,34 @@
             margin-bottom: 0 !important;
             max-width: 100% !important;
             width: fit-content !important;
+            min-width: 220px;
+            min-height: 160px;
             position: relative;
         }
 
         .msg-media-bubble .media-rendered-content {
             position: relative;
-            width: fit-content !important;
+            width: 100%;
+            min-width: 220px;
+            min-height: 160px;
             display: flex;
             align-items: center;
             justify-content: center;
+            background: #e9edef;
+            border-radius: 6px;
         }
 
         .msg-media-bubble .chat-media-img {
+            min-width: 220px;
+            min-height: 160px;
             max-width: 330px;
             max-height: 330px;
-            width: auto;
+            width: 100%;
             height: auto;
             border-radius: 6px;
             display: block;
-            object-fit: contain;
+            object-fit: cover;
+            background: #e9edef;
         }
 
         .msg-meta-floating {
@@ -530,14 +547,14 @@
 
         /* Fixed Video Container */
         .media-video-container {
-            position: relative; max-width: 330px; max-height: 330px; width: fit-content; height: fit-content;
-            border-radius: 6px; overflow: hidden; background: #000;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: inline-flex; align-items: center; justify-content: center;
+            position: relative; min-width: 220px; min-height: 160px; max-width: 330px; max-height: 330px;
+            width: 100%; height: auto; border-radius: 6px; overflow: hidden; background: #000;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;
         }
 
         .chat-media-video {
-            max-width: 330px; max-height: 330px; width: auto; height: auto; border-radius: 6px;
-            display: block; background: #000; object-fit: contain;
+            min-width: 220px; min-height: 160px; max-width: 330px; max-height: 330px; width: 100%; height: auto;
+            border-radius: 6px; display: block; background: #000; object-fit: contain;
         }
 
         .video-expand-btn {
@@ -860,11 +877,18 @@
         }
 
         @media (max-width: 768px) {
-            .sidebar { width: 100%; min-width: 100%; }
-            .chat-area { display: none; width: 100%; }
-            .mobile-back { display: block; }
+            body { height: 100dvh; overflow: hidden; }
+            .app-container { height: 100dvh; overflow: hidden; }
+            .sidebar { width: 100%; min-width: 100%; height: 100dvh; }
+            .chat-area { display: none; width: 100%; height: 100dvh; overflow: hidden; }
+            .mobile-back { display: flex !important; align-items: center; justify-content: center; margin-right: 8px; cursor: pointer; }
             .app-container.show-chat .sidebar { display: none !important; }
             .app-container.show-chat .chat-area { display: flex !important; }
+            .active-chat-screen { height: 100dvh; overflow: hidden; }
+            .active-chat-screen .header { min-height: 60px !important; max-height: 60px !important; flex-shrink: 0 !important; }
+            .active-chat-screen .header .search-wrapper { display: none !important; }
+            .messages-container { padding: 12px 10px; }
+            .chat-header-text { margin-left: 10px; }
         }
     </style>
 </head>
@@ -1678,7 +1702,12 @@
                     const isOut = m.direction === 'out';
                     const waId = m.wa_message_id || '';
                     const hasCaption = Boolean(m.caption && String(m.caption).trim());
-                    const type = (m.type || '').toLowerCase();
+                    let type = (m.type || '').toLowerCase();
+                    const filename = (m.filename || '').toLowerCase();
+                    const mimeType = (m.mime_type || '').toLowerCase();
+                    if (filename.startsWith('voice_note_') || mimeType.includes('audio') || (type === 'video' && (m.text === '[audio message]' || m.caption === '[audio message]'))) {
+                        type = 'audio';
+                    }
                     // Direct URL check: S3 URL is present, or blob URL loaded in memory, or outgoing media preview
                     const hasDirectMediaUrl = Boolean(m.s3_url) || Boolean(waId && mediaLoaded[waId]?.url) || (isOut && Boolean(m.media_view_url || m.url));
                     // Only use floating media bubble for images/videos that actually have a ready direct URL and no caption
@@ -1764,7 +1793,12 @@
     }
 
     function renderMediaMessageContent(m) {
-        const type = (m.type || '').toLowerCase();
+        let type = (m.type || '').toLowerCase();
+        const filename = (m.filename || '').toLowerCase();
+        const mimeType = (m.mime_type || '').toLowerCase();
+        if (filename.startsWith('voice_note_') || mimeType.includes('audio') || (type === 'video' && (m.text === '[audio message]' || m.caption === '[audio message]'))) {
+            type = 'audio';
+        }
         const waId = m.wa_message_id || '';
         // isStored: media_status==='stored' in Firebase OR storeMedia() was just called successfully
         const isStored = (m.media_status === 'stored') || Boolean(waId && mediaStored[waId]);
@@ -2537,6 +2571,7 @@
         const formData = new FormData();
         formData.append('to', activeChatId);
         formData.append('file', file);
+        formData.append('type', mediaType);
         if (caption) formData.append('caption', caption);
 
         closeMediaSendModal();
