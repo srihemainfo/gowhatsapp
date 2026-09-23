@@ -1170,8 +1170,15 @@ class FBWhAutomationController extends Controller
                 ->get("https://graph.facebook.com/{$version}/{$mediaId}");
 
             if (!$metaRes->successful()) {
-                Log::error('Meta Media Info Failed', ['media_id' => $mediaId, 'body' => $metaRes->body()]);
-                return ['success' => false, 'error' => 'Failed to obtain media URL from WhatsApp'];
+                $metaStatus = $metaRes->status();
+                Log::error('Meta Media Info Failed', ['media_id' => $mediaId, 'status' => $metaStatus, 'body' => $metaRes->body()]);
+                if ($metaStatus === 410) {
+                    return ['success' => false, 'error' => 'This media has expired (410 Gone). WhatsApp media links are temporary. Ask the sender to resend it.'];
+                }
+                if ($metaStatus === 404) {
+                    return ['success' => false, 'error' => 'Media not found on WhatsApp servers (404). It may have been deleted.'];
+                }
+                return ['success' => false, 'error' => "Failed to obtain media URL from WhatsApp (HTTP {$metaStatus})"];
             }
 
             $info = $metaRes->json();
@@ -1191,13 +1198,25 @@ class FBWhAutomationController extends Controller
                 ->get($downloadUrl);
 
             if (!$fileRes->successful()) {
-                Log::error('Meta Media Download Failed', ['status' => $fileRes->status(), 'media_id' => $mediaId]);
-                return ['success' => false, 'error' => 'Failed to download binary file from WhatsApp'];
+                $dlStatus = $fileRes->status();
+                Log::error('Meta Media Download Failed', ['status' => $dlStatus, 'media_id' => $mediaId]);
+                if ($dlStatus === 410) {
+                    return ['success' => false, 'error' => 'Media file expired on WhatsApp CDN (410 Gone). Ask the sender to resend it.'];
+                }
+                return ['success' => false, 'error' => "Failed to download media from WhatsApp CDN (HTTP {$dlStatus})"];
+            }
+
+            $body = $fileRes->body();
+
+            // Guard: if Meta returned HTML instead of binary, do NOT stream it to the browser
+            if (empty($body) || stripos(substr($body, 0, 100), '<html') !== false || stripos(substr($body, 0, 100), '<!doctype') !== false) {
+                Log::error('Meta returned HTML instead of binary', ['media_id' => $mediaId, 'preview' => substr($body, 0, 200)]);
+                return ['success' => false, 'error' => 'WhatsApp returned an error page instead of the media. The media may have expired.'];
             }
 
             return [
-                'success' => true,
-                'data' => $fileRes->body(),
+                'success'   => true,
+                'data'      => $body,
                 'mime_type' => $mimeType,
             ];
 

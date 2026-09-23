@@ -14,11 +14,12 @@ class AwsS3Service
 
     public function __construct()
     {
-        $this->accessKey = env('AWS_ACCESS_KEY_ID');
-        $this->secretKey = env('AWS_SECRET_ACCESS_KEY');
-        $this->region    = env('AWS_DEFAULT_REGION');
-        $this->bucket    = env('AWS_BUCKET');
-        $this->baseUrl   = rtrim(env('AWS_URL'));
+        $this->accessKey = env('AWS_ACCESS_KEY_ID', '');
+        $this->secretKey = env('AWS_SECRET_ACCESS_KEY', '');
+        $this->region    = env('AWS_DEFAULT_REGION', 'ap-south-1');
+        $this->bucket    = env('AWS_BUCKET', '');
+        $defaultUrl      = "https://{$this->bucket}.s3.{$this->region}.amazonaws.com";
+        $this->baseUrl   = rtrim(env('AWS_URL', $defaultUrl), '/');
     }
 
     /**
