@@ -972,56 +972,64 @@ class FBWhAutomationController extends Controller
                 return response()->json(['status' => false, 'error' => 'Message ID is required'], 400);
             }
 
-            $mediaDetails = $this->getMediaDetails($waMessageId);
-            $type = $mediaDetails['type'] ?? 'image';
-            $mimeType = $mediaDetails['mime_type'] ?? 'application/octet-stream';
-            $ext = $this->getExtensionFromMime($mimeType, $mediaDetails['filename'] ?? null);
+            // --- Priority 1: Use fields passed directly from the frontend (from Firebase) ---
+            $mediaId  = $request->query('media_id')  ?: null;
+            $mimeType = $request->query('mime_type')  ?: null;
+            $type     = $request->query('type')       ?: null;
+            $waId     = $request->query('wa_id')      ?: null;
+
+            // --- Priority 2: Fall back to DB lookup if any field is missing ---
+            if (!$mediaId || !$type) {
+                $mediaDetails = $this->getMediaDetails($waMessageId);
+                $mediaId  = $mediaId  ?: ($mediaDetails['media_id']  ?? null);
+                $mimeType = $mimeType ?: ($mediaDetails['mime_type']  ?? 'application/octet-stream');
+                $type     = $type     ?: ($mediaDetails['type']       ?? 'image');
+                $waId     = $waId     ?: ($mediaDetails['wa_id']      ?? null);
+            }
+
+            $mimeType = $mimeType ?: 'application/octet-stream';
+            $type     = $type     ?: 'image';
+            $ext      = $this->getExtensionFromMime($mimeType);
 
             $s3 = new \App\Services\AwsS3Service();
 
-            // 1. Check whether the file already exists in S3 (meaningful folder or fallback)
+            // 1. Check whether the file already exists in S3
             $existingKey = $s3->findExistingKey($waMessageId, $type, $ext);
             if ($existingKey) {
                 $s3File = $s3->get($existingKey);
                 if ($s3File) {
                     $contentType = $s3File['content_type'] ?: $mimeType;
                     return response($s3File['data'], 200, [
-                        'Content-Type' => $contentType,
+                        'Content-Type'  => $contentType,
                         'Cache-Control' => 'public, max-age=86400',
                     ]);
                 }
             }
 
-            // 2. Request fresh WhatsApp media URL and fetch from Meta
-            $mediaId = $mediaDetails['media_id'] ?? null;
+            // 2. Use meta media_id to fetch fresh binary from Meta Graph API
             if (!$mediaId) {
-                if (is_numeric($waMessageId)) {
-                    $mediaId = $waMessageId;
-                } else {
-                    return response()->json(['status' => false, 'error' => 'Media ID not found for this message'], 404);
-                }
+                return response()->json(['status' => false, 'error' => 'media_id not found — cannot fetch from Meta'], 404);
             }
 
-            $waId = $mediaDetails['wa_id'] ?? null;
             $downloadResult = $this->downloadMediaFromMeta($mediaId, $waId);
 
             if (!$downloadResult['success']) {
                 return response()->json([
                     'status' => false,
-                    'error' => $downloadResult['error'] ?? 'Unable to fetch media from Meta'
-                ], 500);
+                    'error'  => $downloadResult['error'] ?? 'Unable to fetch media from Meta'
+                ], 502);
             }
 
-            $binary = $downloadResult['data'];
+            $binary    = $downloadResult['data'];
             $finalMime = $downloadResult['mime_type'] ?: $mimeType;
 
             return response($binary, 200, [
-                'Content-Type' => $finalMime,
+                'Content-Type'  => $finalMime,
                 'Cache-Control' => 'public, max-age=3600',
             ]);
 
         } catch (\Throwable $e) {
-            Log::error('View Media Error: ' . $e->getMessage());
+            Log::error('View Media Error: ' . $e->getMessage(), ['wa_message_id' => $waMessageId]);
             return response()->json(['status' => false, 'error' => 'Server error: ' . $e->getMessage()], 500);
         }
     }
@@ -1033,14 +1041,29 @@ class FBWhAutomationController extends Controller
                 return response()->json(['status' => false, 'error' => 'Message ID is required'], 400);
             }
 
-            $mediaDetails = $this->getMediaDetails($waMessageId);
-            $type = $mediaDetails['type'] ?? 'image';
-            $mimeType = $mediaDetails['mime_type'] ?? 'application/octet-stream';
-            $ext = $this->getExtensionFromMime($mimeType, $mediaDetails['filename'] ?? null);
+            // --- Priority 1: Use fields sent directly from the frontend (from Firebase) ---
+            $body     = $request->json()->all();
+            $mediaId  = $body['media_id']  ?? $request->input('media_id')  ?? null;
+            $mimeType = $body['mime_type'] ?? $request->input('mime_type') ?? null;
+            $type     = $body['type']      ?? $request->input('type')      ?? null;
+            $waId     = $body['wa_id']     ?? $request->input('wa_id')     ?? null;
 
-            $s3 = new \App\Services\AwsS3Service();
+            // --- Priority 2: Fall back to DB lookup if any field is missing ---
+            if (!$mediaId || !$type) {
+                $mediaDetails = $this->getMediaDetails($waMessageId);
+                $mediaId  = $mediaId  ?: ($mediaDetails['media_id']  ?? null);
+                $mimeType = $mimeType ?: ($mediaDetails['mime_type']  ?? 'application/octet-stream');
+                $type     = $type     ?: ($mediaDetails['type']       ?? 'image');
+                $waId     = $waId     ?: ($mediaDetails['wa_id']      ?? null);
+            }
+
+            $mimeType = $mimeType ?: 'application/octet-stream';
+            $type     = $type     ?: 'image';
+            $ext      = $this->getExtensionFromMime($mimeType);
+
+            $s3     = new \App\Services\AwsS3Service();
             $folder = $s3->getFolderForType($type);
-            $s3Key = "{$folder}/{$waMessageId}.{$ext}";
+            $s3Key  = "{$folder}/{$waMessageId}.{$ext}";
             $viewUrl = url("/api/whatsapp/media/{$waMessageId}/view");
 
             // 1. Check if already stored in S3
@@ -1057,30 +1080,25 @@ class FBWhAutomationController extends Controller
                 ]);
             }
 
-            // 2. Download from Meta
-            $mediaId = $mediaDetails['media_id'] ?? null;
+            // 2. media_id required to download from Meta
             if (!$mediaId) {
-                if (is_numeric($waMessageId)) {
-                    $mediaId = $waMessageId;
-                } else {
-                    return response()->json(['status' => false, 'error' => 'Media ID not found for this message'], 404);
-                }
+                return response()->json(['status' => false, 'error' => 'media_id not found — cannot download from Meta'], 404);
             }
 
-            $waId = $mediaDetails['wa_id'] ?? null;
+            // 3. Download from Meta using the media_id
             $downloadResult = $this->downloadMediaFromMeta($mediaId, $waId);
 
             if (!$downloadResult['success']) {
                 return response()->json([
                     'status' => false,
-                    'error' => $downloadResult['error'] ?? 'Unable to fetch media from Meta'
-                ], 500);
+                    'error'  => $downloadResult['error'] ?? 'Unable to fetch media from Meta'
+                ], 502);
             }
 
-            $binary = $downloadResult['data'];
+            $binary    = $downloadResult['data'];
             $finalMime = $downloadResult['mime_type'] ?: $mimeType;
 
-            // 3. Upload to S3 with meaningful folder path
+            // 4. Upload to S3 with meaningful folder path
             $uploaded = $s3->put($s3Key, $binary, $finalMime);
             if (!$uploaded) {
                 return response()->json([
@@ -1089,7 +1107,7 @@ class FBWhAutomationController extends Controller
                 ], 500);
             }
 
-            // 4. Update Firebase message status if waId is available
+            // 5. Update Firebase message status if waId is available
             if (!empty($waId)) {
                 $this->updateFirebaseMediaStored($waId, $waMessageId);
             }
@@ -1105,7 +1123,7 @@ class FBWhAutomationController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-            Log::error('Store Media Error: ' . $e->getMessage());
+            Log::error('Store Media Error: ' . $e->getMessage(), ['wa_message_id' => $waMessageId]);
             return response()->json(['status' => false, 'error' => 'Server error: ' . $e->getMessage()], 500);
         }
     }

@@ -1563,13 +1563,21 @@
         }
 
         const type = (m.type || 'image').toLowerCase();
-        const viewUrl = getMediaViewUrl(m);
 
+        // Build view URL — append Firebase fields so backend doesn't need a DB lookup
+        let viewUrl = getMediaViewUrl(m);
         if (!viewUrl) {
             mediaErrors[waMessageId] = 'Unable to load media. View URL unavailable.';
             updateMessageMediaUI(waMessageId);
             return;
         }
+        const viewParams = new URLSearchParams();
+        if (m.media_id)   viewParams.set('media_id',  m.media_id);
+        if (m.mime_type)  viewParams.set('mime_type', m.mime_type);
+        if (m.type)       viewParams.set('type',      m.type);
+        if (activeChatId) viewParams.set('wa_id',     activeChatId);  // contact phone number
+        const paramStr = viewParams.toString();
+        if (paramStr) viewUrl += (viewUrl.includes('?') ? '&' : '?') + paramStr;
 
         mediaLoading[waMessageId] = 'viewing';
         delete mediaErrors[waMessageId];
@@ -1665,6 +1673,13 @@
 
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // Send Firebase fields in body so backend uses media_id directly (no DB lookup needed)
+            const postBody = {
+                media_id:  m.media_id  || null,
+                mime_type: m.mime_type || null,
+                type:      m.type      || null,
+                wa_id:     activeChatId || null,  // contact phone number
+            };
             const res = await fetch(storeUrl, {
                 method: 'POST',
                 headers: {
@@ -1672,6 +1687,7 @@
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': csrfToken
                 },
+                body: JSON.stringify(postBody),
                 credentials: 'same-origin'
             });
 
