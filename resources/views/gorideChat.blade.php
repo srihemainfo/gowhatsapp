@@ -405,16 +405,16 @@
         }
 
         .msg-media-bubble .chat-media-img {
-            min-width: 220px;
-            min-height: 160px;
+            min-width: 140px;
             max-width: 330px;
-            max-height: 330px;
-            width: 100%;
+            max-height: 480px;
+            width: auto;
             height: auto;
             border-radius: 6px;
             display: block;
-            object-fit: cover;
-            background: #e9edef;
+            object-fit: contain !important;
+            background: transparent;
+            margin: 0 auto;
         }
 
         .msg-media-captioned .chat-media-img,
@@ -911,19 +911,50 @@
             100% { transform: rotate(360deg); }
         }
 
+        .active-chat-screen {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
         @media (max-width: 768px) {
             body { height: 100dvh; overflow: hidden; }
             .app-container { height: 100dvh; overflow: hidden; }
             .sidebar { width: 100%; min-width: 100%; height: 100dvh; }
-            .chat-area { display: none; width: 100%; height: 100dvh; overflow: hidden; }
+            .chat-area { display: none; width: 100%; height: 100dvh; overflow: hidden; flex-direction: column; }
             .mobile-back { display: flex !important; align-items: center; justify-content: center; margin-right: 8px; cursor: pointer; }
             .app-container.show-chat .sidebar { display: none !important; }
             .app-container.show-chat .chat-area { display: flex !important; }
-            .active-chat-screen { height: 100dvh; overflow: hidden; }
-            .active-chat-screen .header { min-height: 60px !important; max-height: 60px !important; flex-shrink: 0 !important; }
+            .active-chat-screen {
+                display: flex !important;
+                flex-direction: column !important;
+                height: 100dvh !important;
+                max-height: 100dvh !important;
+                width: 100% !important;
+                overflow: hidden !important;
+                position: relative !important;
+            }
+            .active-chat-screen .header {
+                position: sticky !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                min-height: 60px !important;
+                max-height: 60px !important;
+                flex-shrink: 0 !important;
+                z-index: 1000 !important;
+                background: var(--header-bg) !important;
+                display: flex !important;
+                align-items: center !important;
+            }
             .active-chat-screen .header .search-wrapper { display: none !important; }
-            .messages-container { padding: 12px 10px; }
-            .chat-header-text { margin-left: 10px; }
+            .messages-container { flex: 1 !important; overflow-y: auto !important; padding: 12px 10px !important; }
+            .chat-header-text { margin-left: 10px; overflow: hidden; }
+            .chat-header-name-wrapper { display: flex; align-items: center; gap: 8px; }
+            .footer { flex-shrink: 0 !important; }
         }
     </style>
 </head>
@@ -1754,10 +1785,11 @@
 
                     if (isMediaMessage(m)) {
                         const mediaBubbleClass = isVisualMedia ? (hasCaption ? 'msg-media-bubble msg-media-captioned' : 'msg-media-bubble') : '';
+                        const showOuterMeta = !isVisualMedia && type !== 'audio';
                         html += `<div class="msg ${isOut?'msg-out':'msg-in'} ${mediaBubbleClass}" data-wa-msg-id="${escapeHtml(waId)}">
                             ${reactBtnHtml}
                             ${renderMediaMessageContent(m)}
-                            ${!isVisualMedia ? `
+                            ${showOuterMeta ? `
                             <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
                             ` : ''}
                             ${reactPillHtml}
@@ -1967,7 +1999,13 @@
                                     <span class="vn-bar" style="height:80%"></span>
                                     <span class="vn-bar" style="height:65%"></span>
                                 </div>
-                                <div class="vn-timeline"><span class="vn-current-time">0:00</span><span>Voice message</span></div>
+                                <div class="vn-timeline">
+                                    <span class="vn-current-time">0:00</span>
+                                    <div class="vn-meta-inline" style="display:inline-flex; align-items:center; gap:3px; margin-left:auto;">
+                                        <span class="msg-time" style="font-size:11px; color:var(--text-secondary);">${formatTime(parseDate(m.timestamp))}</span>
+                                        ${isOut ? `<span class="msg-status" style="display:inline-flex; align-items:center;">${getTickSVG(m.status)}</span>` : ''}
+                                    </div>
+                                </div>
                             </div>
                             <audio preload="metadata" src="${escapeHtml(srcUrl)}" style="display:none;" ontimeupdate="onVnTimeUpdate(this)" onended="onVnEnded(this)" onloadedmetadata="onVnLoadedMeta(this)"></audio>
                         </div>
@@ -2388,14 +2426,14 @@
         const container = audio.closest('.chat-vn-player');
         if (!container) return;
         const timeEl = container.querySelector('.vn-current-time');
-        if (timeEl && audio.duration) {
+        if (timeEl && isFinite(audio.currentTime)) {
             const cur = Math.floor(audio.currentTime);
             const mins = Math.floor(cur / 60);
             const secs = cur % 60;
             timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         }
         const bars = container.querySelectorAll('.vn-bar');
-        if (bars.length && audio.duration) {
+        if (bars.length && isFinite(audio.duration) && audio.duration > 0) {
             const progressRatio = audio.currentTime / audio.duration;
             const activeBars = Math.floor(progressRatio * bars.length);
             bars.forEach((bar, idx) => {
@@ -2418,11 +2456,15 @@
         const bars = container.querySelectorAll('.vn-bar');
         bars.forEach(b => b.classList.remove('played'));
         const timeEl = container.querySelector('.vn-current-time');
-        if (timeEl && audio.duration) {
-            const cur = Math.floor(audio.duration);
-            const mins = Math.floor(cur / 60);
-            const secs = cur % 60;
-            timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        if (timeEl) {
+            if (isFinite(audio.duration) && audio.duration > 0) {
+                const cur = Math.floor(audio.duration);
+                const mins = Math.floor(cur / 60);
+                const secs = cur % 60;
+                timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            } else {
+                timeEl.innerText = '0:00';
+            }
         }
     }
 
@@ -2430,11 +2472,26 @@
         const container = audio.closest('.chat-vn-player');
         if (!container) return;
         const timeEl = container.querySelector('.vn-current-time');
-        if (timeEl && audio.duration && !isNaN(audio.duration)) {
+        if (!timeEl) return;
+
+        if (isFinite(audio.duration) && audio.duration > 0) {
             const cur = Math.floor(audio.duration);
             const mins = Math.floor(cur / 60);
             const secs = cur % 60;
             timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        } else if (audio.duration === Infinity) {
+            // Browser WebM recorded audio fix: seek to end to read true duration, then reset
+            audio.currentTime = 1e101;
+            audio.ontimeupdate = function() {
+                this.ontimeupdate = (e) => onVnTimeUpdate(this);
+                if (isFinite(this.duration) && this.duration > 0) {
+                    const cur = Math.floor(this.duration);
+                    const mins = Math.floor(cur / 60);
+                    const secs = cur % 60;
+                    timeEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                }
+                this.currentTime = 0;
+            };
         }
     }
 
@@ -2644,7 +2701,13 @@
                                 <span class="vn-bar" style="height:80%"></span>
                                 <span class="vn-bar" style="height:65%"></span>
                             </div>
-                            <div class="vn-timeline"><span class="vn-current-time">0:00</span><span>Voice message</span></div>
+                            <div class="vn-timeline">
+                                <span class="vn-current-time">0:00</span>
+                                <div class="vn-meta-inline" style="display:inline-flex; align-items:center; gap:3px; margin-left:auto;">
+                                    <span class="msg-time" style="font-size:11px; color:var(--text-secondary);">${formatTime(new Date())}</span>
+                                    <span class="msg-status" style="display:inline-flex; align-items:center;"><span class="spinner" style="width:11px; height:11px; border-width:2px;"></span></span>
+                                </div>
+                            </div>
                         </div>
                         <audio preload="metadata" src="${blobUrl}" style="display:none;" ontimeupdate="onVnTimeUpdate(this)" onended="onVnEnded(this)" onloadedmetadata="onVnLoadedMeta(this)"></audio>
                     </div>
@@ -2653,10 +2716,11 @@
             previewHtml = `<div class="media-placeholder-card"><span class="media-placeholder-icon">📄</span><span class="media-doc-name">${escapeHtml(file.name)}</span></div>`;
         }
 
+        const showOuterMeta = !isVisualMediaNoCaption && mediaType !== 'audio';
         const msgHtml = `<div class="msg msg-out ${isVisualMediaNoCaption ? 'msg-media-bubble' : ''}" id="${tempId}">
             <div class="media-container">${previewHtml}</div>
             ${caption ? `<div class="media-caption"><span>${escapeHtml(caption)}</span></div>` : ''}
-            ${!isVisualMediaNoCaption ? `
+            ${showOuterMeta ? `
             <div class="msg-meta"><span class="msg-time">${formatTime(new Date())}</span><span class="msg-status"><span class="spinner" style="width:12px; height:12px; border-width:2px;"></span></span></div>
             ` : ''}
         </div>`;

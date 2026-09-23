@@ -213,8 +213,47 @@ class FBWhAutomationController extends Controller
 
             $s3Url = $s3->getUrl($s3Key);
 
-            // Prepare WhatsApp payload
-            $mediaPayload = ['link' => $s3Url];
+            $metaMediaId = null;
+
+            // For audio, WhatsApp Cloud API requires/prefers uploading to Meta first to get a media_id
+            if ($mediaType === 'audio') {
+                $metaMime = 'audio/ogg; codecs=opus';
+                if (str_contains($mimeType, 'mp4') || str_contains($mimeType, 'm4a')) {
+                    $metaMime = 'audio/mp4';
+                } elseif (str_contains($mimeType, 'aac')) {
+                    $metaMime = 'audio/aac';
+                } elseif (str_contains($mimeType, 'mpeg') || str_contains($mimeType, 'mp3')) {
+                    $metaMime = 'audio/mpeg';
+                } elseif (str_contains($mimeType, 'amr')) {
+                    $metaMime = 'audio/amr';
+                } elseif (str_contains($mimeType, 'ogg')) {
+                    $metaMime = 'audio/ogg; codecs=opus';
+                }
+
+                $uploadRes = Http::withToken($token)->timeout(30)
+                    ->attach('file', $fileBinary, $originalFilename, ['Content-Type' => $metaMime])
+                    ->post("https://graph.facebook.com/{$ver}/{$phone_number_id}/media", [
+                        'messaging_product' => 'whatsapp',
+                        'type'              => $metaMime,
+                    ]);
+
+                if ($uploadRes->successful()) {
+                    $metaMediaId = $uploadRes->json()['id'] ?? null;
+                } else {
+                    Log::warning('Meta audio /media direct upload returned non-200', [
+                        'status' => $uploadRes->status(),
+                        'body'   => $uploadRes->body(),
+                    ]);
+                }
+            }
+
+            // Prepare WhatsApp payload (use media_id if available, otherwise S3 link)
+            if ($metaMediaId) {
+                $mediaPayload = ['id' => $metaMediaId];
+            } else {
+                $mediaPayload = ['link' => $s3Url];
+            }
+
             if (!empty($caption) && in_array($mediaType, ['image', 'video', 'document'])) {
                 $mediaPayload['caption'] = $caption;
             }
@@ -237,8 +276,8 @@ class FBWhAutomationController extends Controller
 
             $res = $response->json();
 
-            // Fallback 1: Direct /media upload to Meta if link dispatch failed
-            if ($response->failed()) {
+            // Fallback 1: Direct /media upload to Meta if link dispatch failed and we haven't uploaded yet
+            if ($response->failed() && !$metaMediaId) {
                 Log::warning('WhatsApp media link dispatch failed, trying direct /media upload', ['response' => $res]);
                 $uploadRes = Http::withToken($token)->timeout(30)
                     ->attach('file', $fileBinary, $originalFilename)
@@ -250,6 +289,7 @@ class FBWhAutomationController extends Controller
                 if ($uploadRes->successful()) {
                     $metaId = $uploadRes->json()['id'] ?? null;
                     if ($metaId) {
+                        $metaMediaId = $metaId;
                         $waPayload[$mediaType] = ['id' => $metaId];
                         if (!empty($caption) && in_array($mediaType, ['image', 'video', 'document'])) {
                             $waPayload[$mediaType]['caption'] = $caption;
@@ -298,13 +338,18 @@ class FBWhAutomationController extends Controller
             $istTime = Carbon::now('Asia/Kolkata')->toDateTimeString();
 
             // Save in Firebase & DB
-            $this->storeOutgoingFirebase($to, $waMessageId, $mediaType, $caption ?: "[{$mediaType} message]", null, $istTime, [
+            $extraFields = [
                 'media_status' => 'stored',
                 's3_url'       => $s3Url,
                 'caption'      => $caption,
                 'filename'     => $originalFilename,
                 'mime_type'    => $mimeType,
-            ]);
+            ];
+            if ($metaMediaId) {
+                $extraFields['media_id'] = $metaMediaId;
+            }
+
+            $this->storeOutgoingFirebase($to, $waMessageId, $mediaType, $caption ?: "[{$mediaType} message]", null, $istTime, $extraFields);
 
             $this->upsertContactFirebase($to, null, $caption ?: "[{$mediaType}]", false, $istTime);
             $this->storeOutgoingMessage($to, $waMessageId, $mediaType, $caption ?: "[{$mediaType}]", null);
@@ -312,6 +357,7 @@ class FBWhAutomationController extends Controller
             return response()->json([
                 'status'        => true,
                 'wa_message_id' => $waMessageId,
+                'media_id'      => $metaMediaId,
                 's3_url'        => $s3Url,
                 'type'          => $mediaType,
                 'caption'       => $caption,
