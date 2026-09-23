@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use App\Services\AwsS3Service;
 use Carbon\Carbon;
 
 class FBWhAutomationController extends Controller
@@ -973,28 +973,23 @@ class FBWhAutomationController extends Controller
             }
 
             $mediaDetails = $this->getMediaDetails($waMessageId);
+            $type = $mediaDetails['type'] ?? 'image';
             $mimeType = $mediaDetails['mime_type'] ?? 'application/octet-stream';
             $ext = $this->getExtensionFromMime($mimeType, $mediaDetails['filename'] ?? null);
 
-            $s3Disk = Storage::disk('s3');
-            $s3Key = "whatsapp_media/{$waMessageId}.{$ext}";
+            $s3 = new \App\Services\AwsS3Service();
 
-            // 1. Check whether the file already exists in S3
-            if ($s3Disk->exists($s3Key)) {
-                $fileContents = $s3Disk->get($s3Key);
-                $contentType = $s3Disk->mimeType($s3Key) ?: $mimeType;
-                return response($fileContents, 200, [
-                    'Content-Type' => $contentType,
-                    'Cache-Control' => 'public, max-age=86400',
-                ]);
-            }
-
-            if ($s3Disk->exists("whatsapp_media/{$waMessageId}")) {
-                $fileContents = $s3Disk->get("whatsapp_media/{$waMessageId}");
-                return response($fileContents, 200, [
-                    'Content-Type' => $mimeType,
-                    'Cache-Control' => 'public, max-age=86400',
-                ]);
+            // 1. Check whether the file already exists in S3 (meaningful folder or fallback)
+            $existingKey = $s3->findExistingKey($waMessageId, $type, $ext);
+            if ($existingKey) {
+                $s3File = $s3->get($existingKey);
+                if ($s3File) {
+                    $contentType = $s3File['content_type'] ?: $mimeType;
+                    return response($s3File['data'], 200, [
+                        'Content-Type' => $contentType,
+                        'Cache-Control' => 'public, max-age=86400',
+                    ]);
+                }
             }
 
             // 2. Request fresh WhatsApp media URL and fetch from Meta
@@ -1039,27 +1034,30 @@ class FBWhAutomationController extends Controller
             }
 
             $mediaDetails = $this->getMediaDetails($waMessageId);
+            $type = $mediaDetails['type'] ?? 'image';
             $mimeType = $mediaDetails['mime_type'] ?? 'application/octet-stream';
             $ext = $this->getExtensionFromMime($mimeType, $mediaDetails['filename'] ?? null);
 
-            $s3Disk = Storage::disk('s3');
-            $s3Key = "whatsapp_media/{$waMessageId}.{$ext}";
+            $s3 = new \App\Services\AwsS3Service();
+            $folder = $s3->getFolderForType($type);
+            $s3Key = "{$folder}/{$waMessageId}.{$ext}";
             $viewUrl = url("/api/whatsapp/media/{$waMessageId}/view");
 
-            // Check if already stored in S3
-            if ($s3Disk->exists($s3Key) || $s3Disk->exists("whatsapp_media/{$waMessageId}")) {
-                $actualKey = $s3Disk->exists($s3Key) ? $s3Key : "whatsapp_media/{$waMessageId}";
+            // 1. Check if already stored in S3
+            $existingKey = $s3->findExistingKey($waMessageId, $type, $ext);
+            if ($existingKey) {
                 return response()->json([
-                    'status' => true,
-                    'stored' => true,
+                    'status'         => true,
+                    'stored'         => true,
                     'already_stored' => true,
-                    'message' => 'Media already stored in S3',
-                    'media_path' => $actualKey,
-                    'view_url' => $viewUrl,
+                    'message'        => 'Media already stored in S3',
+                    'media_path'     => $existingKey,
+                    's3_url'         => $s3->getUrl($existingKey),
+                    'view_url'       => $viewUrl,
                 ]);
             }
 
-            // Download from Meta
+            // 2. Download from Meta
             $mediaId = $mediaDetails['media_id'] ?? null;
             if (!$mediaId) {
                 if (is_numeric($waMessageId)) {
@@ -1082,24 +1080,28 @@ class FBWhAutomationController extends Controller
             $binary = $downloadResult['data'];
             $finalMime = $downloadResult['mime_type'] ?: $mimeType;
 
-            // Upload to S3
-            $s3Disk->put($s3Key, $binary, [
-                'visibility' => 'public',
-                'ContentType' => $finalMime,
-            ]);
+            // 3. Upload to S3 with meaningful folder path
+            $uploaded = $s3->put($s3Key, $binary, $finalMime);
+            if (!$uploaded) {
+                return response()->json([
+                    'status' => false,
+                    'error'  => 'Failed to save media to S3'
+                ], 500);
+            }
 
-            // Update Firebase message status if waId is available
+            // 4. Update Firebase message status if waId is available
             if (!empty($waId)) {
                 $this->updateFirebaseMediaStored($waId, $waMessageId);
             }
 
             return response()->json([
-                'status' => true,
-                'stored' => true,
+                'status'         => true,
+                'stored'         => true,
                 'already_stored' => false,
-                'message' => 'Media stored successfully',
-                'media_path' => $s3Key,
-                'view_url' => $viewUrl,
+                'message'        => 'Media stored successfully',
+                'media_path'     => $s3Key,
+                's3_url'         => $s3->getUrl($s3Key),
+                'view_url'       => $viewUrl,
             ]);
 
         } catch (\Throwable $e) {
