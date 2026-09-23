@@ -1375,18 +1375,6 @@
                 const box = document.getElementById('messageDisplay');
                 box.innerHTML = html; 
                 box.scrollTop = box.scrollHeight;
-
-                // Auto-load media for image, video, audio, sticker messages
-                messagesData.forEach(m => {
-                    if (isMediaMessage(m) && m.wa_message_id) {
-                        const type = (m.type || '').toLowerCase();
-                        if (['image', 'video', 'audio', 'sticker'].includes(type)) {
-                            if (!mediaLoaded[m.wa_message_id] && !mediaLoading[m.wa_message_id]) {
-                                viewMedia(m.wa_message_id);
-                            }
-                        }
-                    }
-                });
             });
     }
 
@@ -1436,16 +1424,56 @@
     function renderMediaMessageContent(m) {
         const type = (m.type || '').toLowerCase();
         const waId = m.wa_message_id || '';
+        // isStored: media_status==='stored' in Firebase OR storeMedia() was just called successfully
         const isStored = (m.media_status === 'stored') || Boolean(waId && mediaStored[waId]);
         const isLoadingView = Boolean(waId && mediaLoading[waId] === 'viewing');
         const isLoadingStore = Boolean(waId && mediaLoading[waId] === 'storing');
+        // loaded: set only after user clicks View and fetch/blob succeeds
         const loaded = waId ? mediaLoaded[waId] : null;
         const errorMsg = waId ? mediaErrors[waId] : null;
         const hasCaption = Boolean(m.caption && String(m.caption).trim());
 
+        // The /view endpoint serves from S3 if stored, or fetches from Meta — always correct domain
+        const viewUrl = getMediaViewUrl(m);
+
         let contentHtml = '';
 
-        if (loaded && loaded.url) {
+        // === CASE 1: Already stored in S3 — render inline directly using the /view URL as src ===
+        if (isStored && viewUrl && ['image', 'video', 'audio', 'sticker'].includes(type)) {
+            if (type === 'image') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <img src="${escapeHtml(viewUrl)}" alt="WhatsApp image" class="chat-media-img"
+                            onclick="openMediaLightbox('${escapeHtml(viewUrl)}')" title="Click to enlarge"
+                            onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';" />
+                        <div style="display:none;font-size:12px;color:#dc2626;">Failed to load image</div>
+                    </div>`;
+            } else if (type === 'video') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <video controls preload="metadata" playsinline class="chat-media-video">
+                            <source src="${escapeHtml(viewUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                            Your browser does not support HTML video.
+                        </video>
+                    </div>`;
+            } else if (type === 'audio') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <audio controls preload="metadata" class="chat-media-audio">
+                            <source src="${escapeHtml(viewUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                            Your browser does not support HTML audio.
+                        </audio>
+                    </div>`;
+            } else if (type === 'sticker') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <img src="${escapeHtml(viewUrl)}" alt="WhatsApp sticker" class="chat-media-sticker" />
+                    </div>`;
+            }
+            contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
+
+        // === CASE 2: User clicked View and blob is ready ===
+        } else if (loaded && loaded.url) {
             if (type === 'image') {
                 contentHtml = `
                     <div class="media-rendered-content">
@@ -1469,11 +1497,10 @@
                     </div>`;
             } else if (type === 'document') {
                 contentHtml = `
-                    <div class="media-placeholder-card media-doc-card">
+                    <div class="media-placeholder-card">
                         <div class="media-placeholder-info">
                             <span class="media-placeholder-icon">📄</span>
-                            <span class="media-doc-name" title="${escapeHtml(m.filename || 'Document')}">${escapeHtml(m.filename || 'Document message')}</span>
-                            <span class="media-placeholder-subtitle">Document loaded</span>
+                            <span class="media-doc-name" title="${escapeHtml(m.filename || 'Document')}">${escapeHtml(m.filename || 'Document')}</span>
                         </div>
                         <div class="media-actions">
                             <button type="button" class="media-btn media-btn-primary" onclick="viewMedia('${escapeHtml(waId)}')">
@@ -1487,37 +1514,20 @@
                         <img src="${escapeHtml(loaded.url)}" alt="WhatsApp sticker" class="chat-media-sticker" />
                     </div>`;
             }
+            // After viewing: show Store button if not yet stored
+            contentHtml += `<div class="media-store-bar">
+                <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
+                    ${isLoadingStore ? 'Storing...' : 'Store in S3'}
+                </button>
+            </div>`;
 
-            let storeBar = '';
-            if (isStored) {
-                storeBar = `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
-            } else if (waId) {
-                storeBar = `
-                    <div class="media-store-bar">
-                        <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
-                            ${isLoadingStore ? 'Storing...' : 'Store in S3'}
-                        </button>
-                    </div>`;
-            }
-            contentHtml += storeBar;
-
+        // === CASE 3: Not stored, not yet loaded — show placeholder with View button ===
         } else {
-            let icon = '🖼️';
-            let title = 'Image';
-
-            if (type === 'video') {
-                icon = '🎥';
-                title = 'Video';
-            } else if (type === 'audio') {
-                icon = '🎵';
-                title = 'Audio';
-            } else if (type === 'document') {
-                icon = '📄';
-                title = m.filename ? escapeHtml(m.filename) : 'Document';
-            } else if (type === 'sticker') {
-                icon = '🎨';
-                title = 'Sticker';
-            }
+            let icon = '🖼️', title = 'Image';
+            if (type === 'video')    { icon = '🎥'; title = 'Video'; }
+            else if (type === 'audio')    { icon = '🎵'; title = 'Audio'; }
+            else if (type === 'document') { icon = '📄'; title = m.filename ? escapeHtml(m.filename) : 'Document'; }
+            else if (type === 'sticker')  { icon = '🎨'; title = 'Sticker'; }
 
             const viewBtnLabel = getViewButtonLabel(type);
 
@@ -1528,15 +1538,17 @@
                         <span class="${type === 'document' && m.filename ? 'media-doc-name' : 'media-placeholder-title'}">${title}</span>
                     </div>
                     <div class="media-actions">
-                        <button type="button" class="media-btn media-btn-primary" onclick="viewMedia('${escapeHtml(waId)}')" ${isLoadingView || isLoadingStore || !waId ? 'disabled' : ''}>
+                        <button type="button" class="media-btn media-btn-primary"
+                            onclick="viewMedia('${escapeHtml(waId)}')"
+                            ${isLoadingView || isLoadingStore || !waId ? 'disabled' : ''}>
                             ${isLoadingView ? 'Loading...' : viewBtnLabel}
                         </button>
-                        ${isStored 
-                            ? `<span class="media-stored-badge">✓ Stored</span>`
-                            : (waId ? `
-                                <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore || isLoadingView ? 'disabled' : ''}>
-                                    ${isLoadingStore ? 'Storing...' : 'Store'}
-                                </button>` : '')
+                        ${waId && !isStored ? `
+                            <button type="button" class="media-btn media-btn-store"
+                                onclick="storeMedia('${escapeHtml(waId)}')"
+                                ${isLoadingStore || isLoadingView ? 'disabled' : ''}>
+                                ${isLoadingStore ? 'Storing...' : 'Store'}
+                            </button>` : (isStored ? `<span class="media-stored-badge">✓ Stored</span>` : '')
                         }
                     </div>
                 </div>`;
