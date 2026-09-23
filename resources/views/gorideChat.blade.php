@@ -1375,6 +1375,18 @@
                 const box = document.getElementById('messageDisplay');
                 box.innerHTML = html; 
                 box.scrollTop = box.scrollHeight;
+
+                // Auto-load media for image, video, audio, sticker messages
+                messagesData.forEach(m => {
+                    if (isMediaMessage(m) && m.wa_message_id) {
+                        const type = (m.type || '').toLowerCase();
+                        if (['image', 'video', 'audio', 'sticker'].includes(type)) {
+                            if (!mediaLoaded[m.wa_message_id] && !mediaLoading[m.wa_message_id]) {
+                                viewMedia(m.wa_message_id);
+                            }
+                        }
+                    }
+                });
             });
     }
 
@@ -1399,14 +1411,14 @@
     }
 
     function getMediaViewUrl(m) {
-        if (m.media_view_url) return m.media_view_url;
-        if (m.wa_message_id) return `/api/whatsapp/media/${encodeURIComponent(m.wa_message_id)}/view`;
+        // Always build from current origin to avoid stale/wrong-domain URLs stored in Firebase
+        if (m.wa_message_id) return `${window.location.origin}/api/whatsapp/media/${encodeURIComponent(m.wa_message_id)}/view`;
         return null;
     }
 
     function getMediaStoreUrl(m) {
-        if (m.media_store_url) return m.media_store_url;
-        if (m.wa_message_id) return `/api/whatsapp/media/${encodeURIComponent(m.wa_message_id)}/store`;
+        // Always build from current origin to avoid stale/wrong-domain URLs stored in Firebase
+        if (m.wa_message_id) return `${window.location.origin}/api/whatsapp/media/${encodeURIComponent(m.wa_message_id)}/store`;
         return null;
     }
 
