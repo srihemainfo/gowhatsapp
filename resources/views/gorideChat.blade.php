@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Go Whatsapp</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="shortcut icon" href="https://www.goride.net.in/public/goride/img/Go-Ride-fav-icon.webp">
+    <link rel="shortcut icon" href="https://www.goride.uk/in/goride/img/Go-Ride-fav-icon.webp">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
