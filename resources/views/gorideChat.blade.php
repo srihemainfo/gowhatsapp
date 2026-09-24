@@ -2165,19 +2165,14 @@
         // If already cached in memory
         if (mediaLoaded[waMessageId] && mediaLoaded[waMessageId].url) {
             const cachedUrl = mediaLoaded[waMessageId].url;
-            if (type === 'document') {
-                window.open(cachedUrl, '_blank');
-            } else if (type === 'image' || type === 'sticker') {
-                openMediaLightbox(cachedUrl, 'image');
-            } else if (type === 'video') {
-                openMediaLightbox(cachedUrl, 'video');
-            }
+            // Open directly in new tab — no modal needed
+            window.open(cachedUrl, '_blank');
             return;
         }
 
-        // If s3_url available, use directly for image/sticker lightbox
+        // If s3_url available, open directly in new tab for image/sticker
         if (m.s3_url && (type === 'image' || type === 'sticker')) {
-            openMediaLightbox(m.s3_url, 'image');
+            window.open(m.s3_url, '_blank');
             return;
         }
 
@@ -2246,26 +2241,16 @@
                     window.open(blobUrl, '_blank');
                 }
                 updateMessageMediaUI(waMessageId);
-            } else if (type === 'image' || type === 'sticker') {
-                // Open lightbox immediately — do NOT call updateMessageMediaUI for images
-                // to avoid page re-layout/scroll jumping after lightbox opens
-                openMediaLightbox(blobUrl, 'image');
-                // Cache the blob URL so subsequent clicks use it, without re-rendering
-                // updateMessageMediaUI is intentionally skipped here for images
-            } else if (type === 'video') {
-                openMediaLightbox(blobUrl, 'video');
-                updateMessageMediaUI(waMessageId);
             } else {
-                updateMessageMediaUI(waMessageId);
-            }
-
-            // Auto-play audio after loading
-            if (type === 'audio') {
-                const container = document.getElementById('media-content-' + waMessageId);
-                if (container) {
+                // For images, video, audio, sticker — open directly in new tab
+                window.open(blobUrl, '_blank');
+                if (type === 'audio') {
                     updateMessageMediaUI(waMessageId);
-                    const playBtn = container.querySelector('.vn-play-circle');
-                    if (playBtn) setTimeout(() => playBtn.click(), 100);
+                    const container = document.getElementById('media-content-' + waMessageId);
+                    if (container) {
+                        const playBtn = container.querySelector('.vn-play-circle');
+                        if (playBtn) setTimeout(() => playBtn.click(), 100);
+                    }
                 }
             }
 
