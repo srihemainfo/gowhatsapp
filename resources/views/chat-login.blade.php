@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="shortcut icon" href="https://www.goride.net.in/public/goride/img/Go-Ride-fav-icon.webp">
+    <link rel="shortcut icon" href="https://www.goride.uk/in/goride/img/Go-Ride-fav-icon.webp">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Go Whatsapp - Login</title>
     <style>
