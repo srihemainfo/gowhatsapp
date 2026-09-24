@@ -538,6 +538,16 @@
             gap: 8px; width: 100%; margin-top: 4px;
         }
 
+        /* Thin store action bar shown below inline image/video/audio */
+        .media-store-bar {
+            display: flex; align-items: center; justify-content: flex-end;
+            padding: 4px 8px 2px 8px; gap: 6px;
+        }
+
+        .media-store-label {
+            font-size: 12px; color: var(--text-secondary); font-style: italic;
+        }
+
         .media-btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
             padding: 6px 14px; font-size: 12.5px; font-weight: 500; border-radius: 16px;
@@ -1973,10 +1983,19 @@
         if (directMediaUrl && ['image', 'video', 'audio', 'sticker'].includes(type)) {
             const srcUrl = directMediaUrl;
             if (type === 'image') {
+                // Store button bar: show for incoming images not yet saved to S3
+                const storeBarHtml = (!isOut && waId && !isStored) ? `
+                    <div class="media-store-bar">
+                        ${isLoadingStore
+                            ? `<span class="media-store-label">Storing...</span>`
+                            : `<button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')">💾 Store to S3</button>`
+                        }
+                    </div>` : (isStored ? `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>` : '');
+
                 contentHtml = `
                     <div class="media-rendered-content">
                         <img src="${escapeHtml(srcUrl)}" alt="WhatsApp image" class="chat-media-img"
-                            onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to enlarge"
+                            onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to view full screen"
                             onload="const b = document.getElementById('messageDisplay'); if(b) b.scrollTop = b.scrollHeight;"
                             onerror="this.onerror=null; this.src=''; this.closest('.media-rendered-content').innerHTML='<div style=\'padding:16px; text-align:center; color:#8696a0;\'>⚠️ Image unavailable</div>';" />
                         ${!hasCaption ? `
@@ -1988,8 +2007,16 @@
                             <span class="media-caption-text">${escapeHtml(m.caption)}</span>
                             <div class="msg-meta"><span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}</div>
                         </div>`}
+                        ${storeBarHtml}
                     </div>`;
             } else if (type === 'video') {
+                const storeBarHtml = (!isOut && waId && !isStored) ? `
+                    <div class="media-store-bar">
+                        ${isLoadingStore
+                            ? `<span class="media-store-label">Storing...</span>`
+                            : `<button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')">💾 Store to S3</button>`
+                        }
+                    </div>` : (isStored ? `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>` : '');
                 contentHtml = `
                     <div class="media-rendered-content">
                         <div class="media-video-container">
@@ -2011,6 +2038,7 @@
                             <span class="media-caption-text">${escapeHtml(m.caption)}</span>
                             <div class="msg-meta"><span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}</div>
                         </div>` : ''}
+                        ${storeBarHtml}
                     </div>`;
             } else if (type === 'audio') {
                 contentHtml = `
@@ -2055,14 +2083,17 @@
                     </div>`;
             }
 
-            if (!isOut && isStored && (hasCaption || !['image', 'video'].includes(type))) {
-                contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
-            } else if (!isOut && !isStored && (hasCaption || !['image', 'video'].includes(type))) {
-                contentHtml += `<div class="media-store-bar">
-                    <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
-                        ${isLoadingStore ? 'Storing...' : 'Store in S3'}
-                    </button>
-                </div>`;
+            // Store bar for audio/sticker (image & video embed their own store bar above)
+            if (!isOut && !['image', 'video'].includes(type)) {
+                if (isStored) {
+                    contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
+                } else if (waId) {
+                    contentHtml += `<div class="media-store-bar">
+                        <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
+                            ${isLoadingStore ? 'Storing...' : '💾 Store to S3'}
+                        </button>
+                    </div>`;
+                }
             }
 
         // === CASE 2: Document loaded ===
