@@ -1069,8 +1069,8 @@
             </div>
 
             <div class="messages-container" id="messageDisplay">
-                <!-- Chat loading overlay -->
-                <div id="chatLoadingOverlay" style="display:none; position:absolute; inset:0; background:var(--chat-bg, #efeae2); z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;">
+                <!-- Chat loading overlay: starts hidden, JS shows/hides it -->
+                <div id="chatLoadingOverlay" style="display:none; position:absolute; inset:0; background:var(--chat-bg,#efeae2); z-index:10; flex-direction:column; align-items:center; justify-content:center; gap:14px;">
                     <div class="spinner" style="width:32px; height:32px; border-width:3px;"></div>
                     <span style="font-size:13px; color:var(--text-secondary);">Loading messages...</span>
                 </div>
@@ -2162,17 +2162,16 @@
 
         const type = (m.type || 'image').toLowerCase();
 
-        // If already cached in memory
+        // If already cached in memory — re-render inline in the bubble
         if (mediaLoaded[waMessageId] && mediaLoaded[waMessageId].url) {
-            const cachedUrl = mediaLoaded[waMessageId].url;
-            // Open directly in new tab — no modal needed
-            window.open(cachedUrl, '_blank');
+            updateMessageMediaUI(waMessageId);
             return;
         }
 
-        // If s3_url available, open directly in new tab for image/sticker
+        // If s3_url available for image/sticker — show inline immediately
         if (m.s3_url && (type === 'image' || type === 'sticker')) {
-            window.open(m.s3_url, '_blank');
+            mediaLoaded[waMessageId] = { url: m.s3_url, type: type };
+            updateMessageMediaUI(waMessageId);
             return;
         }
 
@@ -2241,17 +2240,17 @@
                     window.open(blobUrl, '_blank');
                 }
                 updateMessageMediaUI(waMessageId);
-            } else {
-                // For images, video, audio, sticker — open directly in new tab
-                window.open(blobUrl, '_blank');
-                if (type === 'audio') {
-                    updateMessageMediaUI(waMessageId);
-                    const container = document.getElementById('media-content-' + waMessageId);
-                    if (container) {
-                        const playBtn = container.querySelector('.vn-play-circle');
-                        if (playBtn) setTimeout(() => playBtn.click(), 100);
-                    }
+            } else if (type === 'audio') {
+                // Audio: render the player inline
+                updateMessageMediaUI(waMessageId);
+                const container = document.getElementById('media-content-' + waMessageId);
+                if (container) {
+                    const playBtn = container.querySelector('.vn-play-circle');
+                    if (playBtn) setTimeout(() => playBtn.click(), 100);
                 }
+            } else {
+                // Image, video, sticker: show INLINE in the message bubble (WhatsApp behavior)
+                updateMessageMediaUI(waMessageId);
             }
 
         } catch (err) {
