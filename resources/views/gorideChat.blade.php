@@ -264,7 +264,7 @@
 
         .highlight { background-color: #ffeb3b; color: #000; }
 
-        .messages-container { flex: 1; padding: 20px 8%; overflow-y: auto; display: flex; flex-direction: column; z-index: 1; scroll-behavior: smooth; }
+        .messages-container { flex: 1; padding: 20px 8%; overflow-y: auto; display: flex; flex-direction: column; z-index: 1; scroll-behavior: smooth; position: relative; }
 
         .date-divider {
             display: flex;
@@ -1068,7 +1068,13 @@
                 </div>
             </div>
 
-            <div class="messages-container" id="messageDisplay"></div>
+            <div class="messages-container" id="messageDisplay">
+                <!-- Chat loading overlay -->
+                <div id="chatLoadingOverlay" style="display:none; position:absolute; inset:0; background:var(--chat-bg, #efeae2); z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;">
+                    <div class="spinner" style="width:32px; height:32px; border-width:3px;"></div>
+                    <span style="font-size:13px; color:var(--text-secondary);">Loading messages...</span>
+                </div>
+            </div>
 
             <div class="footer">
                 <button class="icon-btn" id="footerTemplateBtn" onclick="openTemplateModal()" title="Send Template">
@@ -1107,25 +1113,8 @@
 
                 <textarea class="input-box" id="messageInput" placeholder="Type a message" rows="1" style="resize: none; overflow-y: auto; max-height: 120px; font-family: inherit;"></textarea>
 
-                <div class="voice-record-bar" id="voiceRecordBar">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span class="voice-rec-dot"></span>
-                        <span class="voice-rec-timer" id="voiceRecTimer">0:00</span>
-                    </div>
-                    <div class="voice-rec-waves">
-                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-                    </div>
-                    <button type="button" class="voice-rec-cancel-btn" onclick="cancelVoiceRecording()" title="Cancel recording">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                    </button>
-                </div>
-
-                <button class="send-btn-round" id="sendBtn" onclick="handleSendButtonClick()" title="Send" style="display:none;">
+                <button class="send-btn-round" id="sendBtn" onclick="sendMessage()" title="Send" style="display:flex;">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
-                </button>
-
-                <button class="send-btn-round" id="micBtn" onclick="startVoiceRecording()" title="Click to talk and send voice message" style="display:flex;">
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                 </button>
             </div>
         </div>
@@ -1730,11 +1719,20 @@
         input.value = '';
         input.style.height = 'auto';
         input.focus();
-        resetVoiceRecordingUI();
+
+        // Show loading overlay and wipe previous chat messages immediately on switch
+        const msgBox = document.getElementById('messageDisplay');
+        const chatLoader = document.getElementById('chatLoadingOverlay');
+        if (msgBox) {
+            Array.from(msgBox.children).forEach(child => {
+                if (child.id !== 'chatLoadingOverlay') child.remove();
+            });
+        }
+        if (chatLoader) chatLoader.style.display = 'flex';
 
         db.collection('contacts').doc(id).update({ unread_count: 0 }).catch(()=>{});
 
-        filterContacts(); 
+        filterContacts();
         if(messageListenerUnsubscribe) messageListenerUnsubscribe();
 
         messageListenerUnsubscribe = db.collection('contacts').doc(id).collection('messages')
@@ -1786,7 +1784,30 @@
                         (m.text && (String(m.text).toLowerCase().includes('reaction message') || String(m.text).startsWith('[reaction'))) ||
                         (m.type && String(m.type).toLowerCase() === 'reaction')
                     ) {
-                        return; // Skip — do not render reaction notification bubbles
+                        // For OUTGOING reactions sent from the user's own phone:
+                        // find the target message and update its reaction pill
+                        if (isOut) {
+                            const emoji = m.reaction_emoji || m.emoji || m.reaction || '';
+                            const targetId = m.reaction_message_id || m.reacted_to_wa_id || '';
+                            if (emoji && targetId) {
+                                // Update the target message's reaction pill in the DOM
+                                const targetEl = document.querySelector(`.msg[data-wa-msg-id="${targetId}"]`);
+                                if (targetEl) {
+                                    let pill = targetEl.querySelector('.msg-reaction-pill');
+                                    if (!pill) {
+                                        pill = document.createElement('div');
+                                        pill.className = 'msg-reaction-pill';
+                                        targetEl.appendChild(pill);
+                                    }
+                                    pill.innerText = emoji;
+                                }
+                                // Also update the in-memory map
+                                if (targetId && chatMessagesMap[targetId]) {
+                                    chatMessagesMap[targetId].reaction = emoji;
+                                }
+                            }
+                        }
+                        return; // Skip rendering as a bubble
                     }
 
                     // Direct URL check: S3 URL is present, or blob URL loaded in memory, or outgoing media preview
@@ -1819,8 +1840,11 @@
                 });
                 
                 const box = document.getElementById('messageDisplay');
-                box.innerHTML = html; 
+                box.innerHTML = html;
                 box.scrollTop = box.scrollHeight;
+                // Hide chat loader after messages render
+                const loader = document.getElementById('chatLoadingOverlay');
+                if (loader) loader.style.display = 'none';
             });
     }
 
@@ -3042,11 +3066,9 @@
         this.style.height = (this.scrollHeight) + 'px';
         
         const sendBtn = document.getElementById('sendBtn');
-        const micBtn = document.getElementById('micBtn');
         const hasText = this.value.trim().length > 0;
-        if (sendBtn && micBtn) {
-            sendBtn.style.display = hasText ? 'flex' : 'none';
-            micBtn.style.display = hasText ? 'none' : 'flex';
+        if (sendBtn) {
+            sendBtn.style.display = hasText ? 'flex' : 'flex'; // Always show send
         }
     });
 

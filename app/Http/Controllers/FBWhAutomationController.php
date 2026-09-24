@@ -908,6 +908,20 @@ class FBWhAutomationController extends Controller
             
             $metaTimestamp = $message['timestamp'] ?? time();
             $istTime = Carbon::createFromTimestamp($metaTimestamp)->timezone('Asia/Kolkata')->toDateTimeString();
+
+            // ── Reaction messages: update the reaction field on the target message ──
+            if ($type === 'reaction') {
+                $reactionData = $message['reaction'] ?? [];
+                $emoji        = $reactionData['emoji']      ?? '';
+                $targetMsgId  = $reactionData['message_id'] ?? null;
+
+                if ($targetMsgId) {
+                    // Update the reacted-to message with the emoji pill
+                    $this->updateFirebaseMessageField($waId, $targetMsgId, 'reaction', $emoji);
+                }
+                // Do NOT store a separate reaction document — nothing more to do
+                return;
+            }
     
             $text = $message['text']['body'] ?? $message['button']['text'] ?? $message['interactive']['button_reply']['title'] ?? "[$type message]";
             $payload = $message['button']['payload'] ?? null;
