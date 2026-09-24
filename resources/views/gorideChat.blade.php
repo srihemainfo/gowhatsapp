@@ -538,10 +538,51 @@
             gap: 8px; width: 100%; margin-top: 4px;
         }
 
-        /* Thin store action bar shown below inline image/video/audio */
+        /* Store & metadata action bar below inline media (image/video/audio) */
         .media-store-bar {
-            display: flex; align-items: center; justify-content: flex-end;
-            padding: 4px 8px 2px 8px; gap: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 4px 8px 3px 8px;
+            box-sizing: border-box;
+            gap: 8px;
+            min-height: 28px;
+        }
+
+        .media-store-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .media-footer-meta {
+            margin: 0 !important;
+            float: none !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            margin-left: auto;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .media-img-wrapper {
+            position: relative;
+            width: 100%;
+            line-height: 0;
+            border-radius: 6px;
+            overflow: hidden;
+            display: block;
+        }
+
+        .msg-media-bubble .media-img-wrapper .chat-media-img {
+            border-radius: 6px;
+        }
+
+        .msg-media-captioned .media-img-wrapper .chat-media-img {
+            border-radius: 6px 6px 0 0 !important;
         }
 
         .media-store-label {
@@ -1781,19 +1822,10 @@
                     const isOut = m.direction === 'out';
                     const waId = m.wa_message_id || '';
                     const hasCaption = Boolean(m.caption && String(m.caption).trim());
-                    let type = (m.type || '').toLowerCase();
-                    const filename = (m.filename || '').toLowerCase();
-                    const mimeType = (m.mime_type || '').toLowerCase();
-                    if (filename.startsWith('voice_note_') || mimeType.includes('audio') || (type === 'video' && (m.text === '[audio message]' || m.caption === '[audio message]'))) {
-                        type = 'audio';
-                    }
+                    const type = resolveMessageType(m);
 
                     // Reaction system messages: hide entirely (they update the reacted-to message pill)
-                    if (
-                        type === 'reaction' ||
-                        (m.text && (String(m.text).toLowerCase().includes('reaction message') || String(m.text).startsWith('[reaction'))) ||
-                        (m.type && String(m.type).toLowerCase() === 'reaction')
-                    ) {
+                    if (type === 'reaction') {
                         // For OUTGOING reactions sent from the user's own phone:
                         // find the target message and update its reaction pill
                         if (isOut) {
@@ -1872,9 +1904,90 @@
             .replace(/'/g, '&#039;');
     }
 
+    function resolveMessageType(m) {
+        if (!m) return 'text';
+        const rawType = (m.type || '').toLowerCase().trim();
+        const mime = (m.mime_type || '').toLowerCase().trim();
+        const filename = (m.filename || '').toLowerCase().trim();
+        const text = (m.text || '').toLowerCase().trim();
+        const caption = (m.caption || '').toLowerCase().trim();
+
+        // 1. Reactions
+        if (rawType === 'reaction' || text.includes('reaction message') || text.startsWith('[reaction')) {
+            return 'reaction';
+        }
+
+        // 2. Video: if type is video, mime is video, filename is video ext, or text/caption explicitly says [video message]
+        if (
+            rawType === 'video' ||
+            mime.startsWith('video/') ||
+            filename.match(/\.(mp4|mov|avi|mkv|webm|3gp|m4v)$/i) ||
+            text === '[video message]' ||
+            caption === '[video message]'
+        ) {
+            // Only if it's explicitly a recorded voice note with voice_note_ prefix and pure audio mime
+            if (filename.startsWith('voice_note_') && mime.includes('audio') && !mime.includes('video')) {
+                return 'audio';
+            }
+            return 'video';
+        }
+
+        // 3. Audio / Voice Note
+        if (
+            rawType === 'audio' ||
+            rawType === 'voice' ||
+            mime.startsWith('audio/') ||
+            filename.startsWith('voice_note_') ||
+            filename.match(/\.(mp3|ogg|wav|m4a|aac|opus|oga)$/i) ||
+            text === '[audio message]' ||
+            caption === '[audio message]'
+        ) {
+            return 'audio';
+        }
+
+        // 4. Image
+        if (
+            rawType === 'image' ||
+            mime.startsWith('image/') ||
+            filename.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i) ||
+            text === '[image message]' ||
+            caption === '[image message]'
+        ) {
+            return 'image';
+        }
+
+        // 5. Sticker
+        if (rawType === 'sticker' || (mime.includes('webp') && (filename.includes('sticker') || text === '[sticker message]'))) {
+            return 'sticker';
+        }
+
+        // 6. Document
+        if (
+            rawType === 'document' ||
+            text === '[document message]' ||
+            caption === '[document message]' ||
+            Boolean(m.filename && String(m.filename).trim())
+        ) {
+            return 'document';
+        }
+
+        if (['image', 'video', 'audio', 'document', 'sticker'].includes(rawType)) {
+            return rawType;
+        }
+
+        if (m.media_id || m.s3_url || m.media_view_url) {
+            if (mime.includes('video')) return 'video';
+            if (mime.includes('audio')) return 'audio';
+            if (mime.includes('image')) return 'image';
+            return 'image';
+        }
+
+        return rawType || 'text';
+    }
+
     function isMediaMessage(m) {
         if (!m) return false;
-        const type = (m.type || '').toLowerCase();
+        const type = resolveMessageType(m);
         return ['image', 'video', 'audio', 'document', 'sticker'].includes(type);
     }
 
@@ -1889,7 +2002,7 @@
 
     function getCandidateMediaId(m) {
         if (!m) return null;
-        const type = (m.type || '').toLowerCase();
+        const type = resolveMessageType(m);
 
         let candidate = m.media_id || m.mediaId;
 
@@ -1904,7 +2017,7 @@
             return null;
         };
 
-        if (!candidate) candidate = checkObj(m[type]);
+        if (!candidate && type) candidate = checkObj(m[type]);
         if (!candidate) candidate = checkObj(m.image);
         if (!candidate) candidate = checkObj(m.video);
         if (!candidate) candidate = checkObj(m.audio);
@@ -1944,91 +2057,59 @@
             case 'image': return 'View Image';
             case 'video': return 'View Video';
             case 'audio': return 'Play Audio';
-            case 'document': return 'View';
+            case 'document': return 'Open Document';
             case 'sticker': return 'View Sticker';
             default: return 'View Media';
         }
     }
 
     function renderMediaMessageContent(m) {
-        let type = (m.type || '').toLowerCase();
-        const filename = (m.filename || '').toLowerCase();
-        const mimeType = (m.mime_type || '').toLowerCase();
-        if (filename.startsWith('voice_note_') || mimeType.includes('audio') || (type === 'video' && (m.text === '[audio message]' || m.caption === '[audio message]'))) {
-            type = 'audio';
-        }
+        const type = resolveMessageType(m);
         const waId = m.wa_message_id || '';
-        // isStored: media_status==='stored' in Firebase OR storeMedia() was just called successfully
+        const isOut = m.direction === 'out';
         const isStored = (m.media_status === 'stored') || Boolean(waId && mediaStored[waId]);
         const isLoadingView = Boolean(waId && mediaLoading[waId] === 'viewing');
         const isLoadingStore = Boolean(waId && mediaLoading[waId] === 'storing');
-        // loaded: set only after user clicks View and fetch/blob succeeds
         const loaded = waId ? mediaLoaded[waId] : null;
         const errorMsg = waId ? mediaErrors[waId] : null;
         const hasCaption = Boolean(m.caption && String(m.caption).trim());
 
-        // The /view endpoint serves from S3 if stored, or fetches from Meta — always correct domain
         const viewUrl = getMediaViewUrl(m);
 
         let contentHtml = '';
+
+        // Store action badge / button HTML
+        const showStoreAction = !isOut && (waId || isStored);
+        let storeActionHtml = '';
+        if (showStoreAction) {
+            if (isStored) {
+                storeActionHtml = `<span class="media-stored-badge">✓ Stored</span>`;
+            } else if (isLoadingStore) {
+                storeActionHtml = `<span class="media-store-label">Storing...</span>`;
+            } else if (waId) {
+                storeActionHtml = `<button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')">💾 Store to S3</button>`;
+            }
+        }
 
         // Direct URL is available when:
         // 1. m.s3_url is set (stored in AWS S3)
         // 2. mediaLoaded[waId]?.url is set (user clicked View or just stored)
         // 3. Outgoing message with local preview URL (m.media_view_url or m.url)
-        const isOut = m.direction === 'out';
         const directMediaUrl = m.s3_url || (mediaLoaded[waId] && mediaLoaded[waId].url) || (isOut && (m.media_view_url || m.url)) || null;
 
         // === CASE 1: Direct URL is ready — render inline image / video / audio / sticker ===
         if (directMediaUrl && ['image', 'video', 'audio', 'sticker'].includes(type)) {
             const srcUrl = directMediaUrl;
             if (type === 'image') {
-                // Store button bar: show for incoming images not yet saved to S3
-                const storeBarHtml = (!isOut && waId && !isStored) ? `
-                    <div class="media-store-bar">
-                        ${isLoadingStore
-                            ? `<span class="media-store-label">Storing...</span>`
-                            : `<button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')">💾 Store to S3</button>`
-                        }
-                    </div>` : (isStored ? `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>` : '');
-
+                const showFooterBar = hasCaption || showStoreAction;
                 contentHtml = `
                     <div class="media-rendered-content">
-                        <img src="${escapeHtml(srcUrl)}" alt="WhatsApp image" class="chat-media-img"
-                            onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to view full screen"
-                            onload="const b = document.getElementById('messageDisplay'); if(b) b.scrollTop = b.scrollHeight;"
-                            onerror="this.onerror=null; this.src=''; this.closest('.media-rendered-content').innerHTML='<div style=\'padding:16px; text-align:center; color:#8696a0;\'>⚠️ Image unavailable</div>';" />
-                        ${!hasCaption ? `
-                        <div class="msg-meta msg-meta-floating">
-                            <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
-                            ${isOut ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
-                        </div>` : `
-                        <div class="media-caption-box">
-                            <span class="media-caption-text">${escapeHtml(m.caption)}</span>
-                            <div class="msg-meta"><span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}</div>
-                        </div>`}
-                        ${storeBarHtml}
-                    </div>`;
-            } else if (type === 'video') {
-                const storeBarHtml = (!isOut && waId && !isStored) ? `
-                    <div class="media-store-bar">
-                        ${isLoadingStore
-                            ? `<span class="media-store-label">Storing...</span>`
-                            : `<button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')">💾 Store to S3</button>`
-                        }
-                    </div>` : (isStored ? `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>` : '');
-                contentHtml = `
-                    <div class="media-rendered-content">
-                        <div class="media-video-container">
-                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(srcUrl)}" onloadedmetadata="const b = document.getElementById('messageDisplay'); if(b) b.scrollTop = b.scrollHeight;">
-                                <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
-                                Your browser does not support HTML video.
-                            </video>
-                            <button type="button" class="video-expand-btn" onclick="openMediaLightbox('${escapeHtml(srcUrl)}', 'video')" title="Watch full screen">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-                            </button>
-                            ${!hasCaption ? `
-                            <div class="msg-meta msg-meta-floating" style="bottom: 10px; right: 10px;">
+                        <div class="media-img-wrapper">
+                            <img src="${escapeHtml(srcUrl)}" alt="WhatsApp image" class="chat-media-img"
+                                onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to view full screen"
+                                onerror="this.onerror=null; this.src=''; this.closest('.media-rendered-content').innerHTML='<div style=\\'padding:16px; text-align:center; color:#8696a0;\\'>⚠️ Image unavailable</div>';" />
+                            ${(!showFooterBar) ? `
+                            <div class="msg-meta msg-meta-floating">
                                 <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
                                 ${isOut ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
                             </div>` : ''}
@@ -2036,9 +2117,43 @@
                         ${hasCaption ? `
                         <div class="media-caption-box">
                             <span class="media-caption-text">${escapeHtml(m.caption)}</span>
-                            <div class="msg-meta"><span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}</div>
                         </div>` : ''}
-                        ${storeBarHtml}
+                        ${showFooterBar ? `
+                        <div class="media-store-bar">
+                            <div class="media-store-action">
+                                ${storeActionHtml}
+                            </div>
+                            <div class="msg-meta media-footer-meta">
+                                <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
+                                ${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}
+                            </div>
+                        </div>` : ''}
+                    </div>`;
+            } else if (type === 'video') {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <div class="media-video-container">
+                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(srcUrl)}">
+                                <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
+                                Your browser does not support HTML video.
+                            </video>
+                            <button type="button" class="video-expand-btn" onclick="openMediaLightbox('${escapeHtml(srcUrl)}', 'video')" title="Watch full screen">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                            </button>
+                        </div>
+                        ${hasCaption ? `
+                        <div class="media-caption-box">
+                            <span class="media-caption-text">${escapeHtml(m.caption)}</span>
+                        </div>` : ''}
+                        <div class="media-store-bar">
+                            <div class="media-store-action">
+                                ${storeActionHtml}
+                            </div>
+                            <div class="msg-meta media-footer-meta">
+                                <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
+                                ${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}
+                            </div>
+                        </div>
                     </div>`;
             } else if (type === 'audio') {
                 contentHtml = `
@@ -2075,25 +2190,25 @@
                             </div>
                             <audio preload="metadata" src="${escapeHtml(srcUrl)}" style="display:none;" ontimeupdate="onVnTimeUpdate(this)" onended="onVnEnded(this)" onloadedmetadata="onVnLoadedMeta(this)"></audio>
                         </div>
+                        ${showStoreAction ? `
+                        <div class="media-store-bar" style="padding: 2px 10px 4px 10px;">
+                            <div class="media-store-action">
+                                ${storeActionHtml}
+                            </div>
+                        </div>` : ''}
                     </div>`;
             } else if (type === 'sticker') {
                 contentHtml = `
                     <div class="media-rendered-content">
                         <img src="${escapeHtml(srcUrl)}" alt="WhatsApp sticker" class="chat-media-sticker" />
+                        <div class="media-store-bar" style="padding: 2px 4px;">
+                            <div class="media-store-action">${storeActionHtml}</div>
+                            <div class="msg-meta media-footer-meta">
+                                <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
+                                ${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}
+                            </div>
+                        </div>
                     </div>`;
-            }
-
-            // Store bar for audio/sticker (image & video embed their own store bar above)
-            if (!isOut && !['image', 'video'].includes(type)) {
-                if (isStored) {
-                    contentHtml += `<div class="media-store-bar"><span class="media-stored-badge">✓ Stored</span></div>`;
-                } else if (waId) {
-                    contentHtml += `<div class="media-store-bar">
-                        <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
-                            ${isLoadingStore ? 'Storing...' : '💾 Store to S3'}
-                        </button>
-                    </div>`;
-                }
             }
 
         // === CASE 2: Document loaded ===
@@ -2109,15 +2224,11 @@
                             Open Document
                         </button>
                     </div>
-                </div>`;
-            if (!isOut) {
-                contentHtml += `<div class="media-store-bar">
-                    ${isStored ? `<span class="media-stored-badge">✓ Stored</span>` : `
-                    <button type="button" class="media-btn media-btn-store" onclick="storeMedia('${escapeHtml(waId)}')" ${isLoadingStore ? 'disabled' : ''}>
-                        ${isLoadingStore ? 'Storing...' : 'Store in S3'}
-                    </button>`}
-                </div>`;
-            }
+                </div>
+                ${showStoreAction ? `
+                <div class="media-store-bar" style="padding: 4px 8px;">
+                    <div class="media-store-action">${storeActionHtml}</div>
+                </div>` : ''}`;
 
         // === CASE 3: Not yet loaded / No direct URL — show placeholder card with View / Store buttons ===
         } else {
@@ -2171,7 +2282,7 @@
             el.outerHTML = renderMediaMessageContent(m);
             const msgEl = document.querySelector(`.msg[data-wa-msg-id="${waMessageId}"]`);
             const hasCaption = Boolean(m.caption && String(m.caption).trim());
-            const type = (m.type || '').toLowerCase();
+            const type = resolveMessageType(m);
             const hasDirectUrl = Boolean(m.s3_url) || Boolean(mediaLoaded[waMessageId]?.url) || (m.direction === 'out' && Boolean(m.media_view_url || m.url));
             if (msgEl && ['image', 'video'].includes(type) && hasDirectUrl) {
                 msgEl.classList.add('msg-media-bubble');
@@ -2191,7 +2302,7 @@
         const m = chatMessagesMap[waMessageId];
         if (!m) return;
 
-        const type = (m.type || 'image').toLowerCase();
+        const type = resolveMessageType(m);
 
         // If already cached in memory — re-render inline in the bubble
         if (mediaLoaded[waMessageId] && mediaLoaded[waMessageId].url) {
@@ -2199,9 +2310,9 @@
             return;
         }
 
-        // If s3_url available for image/sticker — show inline immediately
-        if (m.s3_url && (type === 'image' || type === 'sticker')) {
-            mediaLoaded[waMessageId] = { url: m.s3_url, type: type };
+        // If s3_url available for image/video/audio/sticker — show inline immediately
+        if (m.s3_url && ['image', 'video', 'audio', 'sticker'].includes(type)) {
+            mediaLoaded[waMessageId] = { url: m.s3_url, type: type, filename: m.filename };
             updateMessageMediaUI(waMessageId);
             return;
         }
@@ -2328,12 +2439,13 @@
 
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const type = resolveMessageType(m);
             // Send Firebase fields in body so backend uses media_id directly (no DB lookup needed)
             const candidateMediaId = getCandidateMediaId(m);
             const postBody = {
                 media_id:  candidateMediaId || null,
                 mime_type: m.mime_type || null,
-                type:      m.type      || null,
+                type:      type || null,
                 wa_id:     activeChatId || null,  // contact phone number
             };
             const res = await fetch(storeUrl, {
@@ -2374,8 +2486,8 @@
                 // Use s3_url from response to display immediately (public S3 URL, no auth needed)
                 const displayUrl = data.s3_url || data.view_url || null;
                 if (displayUrl) {
-                    const type = (m.type || 'image').toLowerCase();
-                    mediaLoaded[waMessageId] = { url: displayUrl, type, filename: m.filename };
+                    const finalType = resolveMessageType(m);
+                    mediaLoaded[waMessageId] = { url: displayUrl, type: finalType, filename: m.filename };
                     // Also save s3_url into Firebase so it persists across reloads
                     if (data.s3_url && activeChatId) {
                         try {
@@ -2788,7 +2900,7 @@
 
         const showOuterMeta = !isVisualMediaNoCaption && mediaType !== 'audio';
         const msgHtml = `<div class="msg msg-out ${isVisualMediaNoCaption ? 'msg-media-bubble' : ''}" id="${tempId}">
-            <div class="media-container">${previewHtml}</div>
+            <div class="media-container" id="media-content-${tempId}">${previewHtml}</div>
             ${caption ? `<div class="media-caption"><span>${escapeHtml(caption)}</span></div>` : ''}
             ${showOuterMeta ? `
             <div class="msg-meta"><span class="msg-time">${formatTime(new Date())}</span><span class="msg-status"><span class="spinner" style="width:12px; height:12px; border-width:2px;"></span></span></div>
@@ -2826,7 +2938,8 @@
                     if (statusSpan) statusSpan.innerHTML = getTickSVG('sent', isVisualMediaNoCaption);
                     if (data.wa_message_id) {
                         tempEl.setAttribute('data-wa-msg-id', data.wa_message_id);
-                        tempEl.id = 'media-content-' + data.wa_message_id;
+                        const mediaContainer = tempEl.querySelector('.media-container');
+                        if (mediaContainer) mediaContainer.id = 'media-content-' + data.wa_message_id;
                     }
                     const mediaImg = tempEl.querySelector('.chat-media-img');
                     if (mediaImg) mediaImg.style.opacity = '1';
