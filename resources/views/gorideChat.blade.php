@@ -1780,14 +1780,13 @@
                         type = 'audio';
                     }
 
-                    // Reaction messages: render as simple text with the reaction emoji
-                    if (type === 'reaction' || (m.text && String(m.text).startsWith('[reaction:'))) {
-                        const reactEmoji = m.reaction_emoji || m.emoji || (m.text ? m.text.replace('[reaction:','').replace(']','').trim() : '👍');
-                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}" data-wa-msg-id="${escapeHtml(waId)}">
-                            <span style="font-size:22px; line-height:1.3;">${escapeHtml(reactEmoji)}</span>
-                            <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
-                        </div>`;
-                        return;
+                    // Reaction system messages: hide entirely (they update the reacted-to message pill)
+                    if (
+                        type === 'reaction' ||
+                        (m.text && (String(m.text).toLowerCase().includes('reaction message') || String(m.text).startsWith('[reaction'))) ||
+                        (m.type && String(m.type).toLowerCase() === 'reaction')
+                    ) {
+                        return; // Skip — do not render reaction notification bubbles
                     }
 
                     // Direct URL check: S3 URL is present, or blob URL loaded in memory, or outgoing media preview
@@ -1795,7 +1794,8 @@
                     const isVisualMedia = ['image', 'video'].includes(type) && hasDirectMediaUrl;
 
                     const reactPillHtml = m.reaction ? `<div class="msg-reaction-pill" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="Reaction">${escapeHtml(m.reaction)}</div>` : '';
-                    const reactBtnHtml = waId ? `<button type="button" class="msg-react-trigger" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="React"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>` : '';
+                    // Reaction trigger: only show on INCOMING messages (users cannot react to their own outgoing messages)
+                    const reactBtnHtml = (waId && !isOut) ? `<button type="button" class="msg-react-trigger" onclick="openReactionPicker(event, '${escapeHtml(waId)}')" title="React"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>` : '';
 
                     if (isMediaMessage(m)) {
                         const mediaBubbleClass = isVisualMedia ? (hasCaption ? 'msg-media-bubble msg-media-captioned' : 'msg-media-bubble') : '';
@@ -2221,18 +2221,25 @@
                 } else {
                     window.open(blobUrl, '_blank');
                 }
+                updateMessageMediaUI(waMessageId);
             } else if (type === 'image' || type === 'sticker') {
+                // Open lightbox immediately — do NOT call updateMessageMediaUI for images
+                // to avoid page re-layout/scroll jumping after lightbox opens
                 openMediaLightbox(blobUrl, 'image');
+                // Cache the blob URL so subsequent clicks use it, without re-rendering
+                // updateMessageMediaUI is intentionally skipped here for images
             } else if (type === 'video') {
                 openMediaLightbox(blobUrl, 'video');
+                updateMessageMediaUI(waMessageId);
+            } else {
+                updateMessageMediaUI(waMessageId);
             }
 
-            updateMessageMediaUI(waMessageId);
-
-            // Auto-play audio after loading when user clicked the play button
+            // Auto-play audio after loading
             if (type === 'audio') {
                 const container = document.getElementById('media-content-' + waMessageId);
                 if (container) {
+                    updateMessageMediaUI(waMessageId);
                     const playBtn = container.querySelector('.vn-play-circle');
                     if (playBtn) setTimeout(() => playBtn.click(), 100);
                 }
@@ -2662,7 +2669,8 @@
         const icon = document.getElementById('mediaSendBtnIcon');
         const spinner = document.getElementById('mediaSendSpinner');
 
-        btn.disabled = true;
+        // btn may be null when audio is sent directly (modal not open)
+        if (btn) btn.disabled = true;
         if (icon) icon.style.display = 'none';
         if (spinner) spinner.style.display = 'block';
 
@@ -2799,7 +2807,7 @@
                 if (statusSpan) statusSpan.innerHTML = `<span style="color:red; font-size:11px;">⚠️</span>`;
             }
         } finally {
-            btn.disabled = false;
+            if (btn) btn.disabled = false;
             if (icon) icon.style.display = 'block';
             if (spinner) spinner.style.display = 'none';
         }
