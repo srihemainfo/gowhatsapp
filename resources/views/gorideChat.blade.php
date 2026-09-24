@@ -369,7 +369,7 @@
             flex-direction: column;
             width: fit-content !important;
             min-width: 220px !important;
-            min-height: 160px !important;
+            min-height: unset !important;
             max-width: 330px;
             background: var(--incoming-msg);
             box-sizing: border-box;
@@ -405,16 +405,16 @@
         }
 
         .msg-media-bubble .chat-media-img {
-            min-width: 140px;
+            min-width: 220px;
             max-width: 330px;
-            max-height: 480px;
-            width: auto;
+            max-height: 400px;
+            width: 100%;
             height: auto;
             border-radius: 6px;
             display: block;
-            object-fit: contain !important;
+            object-fit: cover !important;
             background: transparent;
-            margin: 0 auto;
+            cursor: pointer;
         }
 
         .msg-media-captioned .chat-media-img,
@@ -569,12 +569,12 @@
         }
 
         .chat-media-img {
-            max-width: 100%; max-height: 280px; border-radius: 8px; object-fit: contain;
+            max-width: 100%; max-height: 400px; border-radius: 8px; object-fit: cover;
             cursor: pointer; display: block; box-shadow: 0 1px 2px rgba(0,0,0,0.12);
-            transition: opacity 0.18s;
+            transition: opacity 0.18s; width: 100%;
         }
 
-        .chat-media-img:hover { opacity: 0.95; }
+        .chat-media-img:hover { opacity: 0.92; }
 
         .chat-media-sticker {
             max-width: 140px; max-height: 140px; object-fit: contain; display: block;
@@ -603,36 +603,39 @@
 
         /* Voice Note Audio Player */
         .chat-vn-player {
-            display: flex; align-items: center; gap: 10px; padding: 6px 10px;
-            background: rgba(0, 0, 0, 0.035); border-radius: 14px; min-width: 220px; max-width: 280px;
+            display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+            background: transparent; border-radius: 14px; min-width: 240px; max-width: 300px;
+            width: 100%;
         }
 
-        .msg-out .chat-vn-player { background: rgba(0, 0, 0, 0.025); }
+        .msg-out .chat-vn-player { background: transparent; }
 
         .vn-play-circle {
-            width: 38px; height: 38px; border-radius: 50%; background: var(--accent-green);
+            width: 42px; height: 42px; border-radius: 50%; background: var(--accent-green);
             color: #ffffff; border: none; display: flex; align-items: center; justify-content: center;
             cursor: pointer; flex-shrink: 0; transition: transform 0.15s, background 0.15s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
 
         .vn-play-circle:hover { background: #008069; transform: scale(1.06); }
 
-        .vn-track-wrapper { flex: 1; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+        .vn-track-wrapper { flex: 1; display: flex; flex-direction: column; gap: 5px; cursor: pointer; min-width: 0; }
 
         .vn-waveform {
-            display: flex; align-items: center; gap: 2.5px; height: 20px; width: 100%;
+            display: flex; align-items: center; gap: 2px; height: 24px; width: 100%;
         }
 
         .vn-bar {
-            flex: 1; background: #8696a0; border-radius: 2px; transition: background 0.15s;
-            min-height: 4px;
+            flex: 1; background: #8696a0; border-radius: 2px; transition: background 0.1s;
+            min-height: 3px;
         }
 
-        .vn-bar.played { background: var(--accent-green); }
+        .msg-out .vn-bar { background: rgba(0,128,100,0.45); }
+        .vn-bar.played { background: var(--accent-green) !important; }
+        .msg-out .vn-bar.played { background: #008069 !important; }
 
         .vn-timeline {
-            display: flex; justify-content: space-between; font-size: 11px;
+            display: flex; justify-content: space-between; align-items: center; font-size: 11px;
             color: var(--text-secondary); font-weight: 500;
         }
 
@@ -1776,6 +1779,17 @@
                     if (filename.startsWith('voice_note_') || mimeType.includes('audio') || (type === 'video' && (m.text === '[audio message]' || m.caption === '[audio message]'))) {
                         type = 'audio';
                     }
+
+                    // Reaction messages: render as simple text with the reaction emoji
+                    if (type === 'reaction' || (m.text && String(m.text).startsWith('[reaction:'))) {
+                        const reactEmoji = m.reaction_emoji || m.emoji || (m.text ? m.text.replace('[reaction:','').replace(']','').trim() : '👍');
+                        html += `<div class="msg ${isOut?'msg-out':'msg-in'}" data-wa-msg-id="${escapeHtml(waId)}">
+                            <span style="font-size:22px; line-height:1.3;">${escapeHtml(reactEmoji)}</span>
+                            <div class="msg-meta"><span class="msg-time">${formatTime(msgDateObj)}</span>${isOut?`<span class="msg-status">${getTickSVG(m.status)}</span>`:''}</div>
+                        </div>`;
+                        return;
+                    }
+
                     // Direct URL check: S3 URL is present, or blob URL loaded in memory, or outgoing media preview
                     const hasDirectMediaUrl = Boolean(m.s3_url) || Boolean(waId && mediaLoaded[waId]?.url) || (isOut && Boolean(m.media_view_url || m.url));
                     const isVisualMedia = ['image', 'video'].includes(type) && hasDirectMediaUrl;
@@ -1940,7 +1954,7 @@
                         <img src="${escapeHtml(srcUrl)}" alt="WhatsApp image" class="chat-media-img"
                             onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to enlarge"
                             onload="const b = document.getElementById('messageDisplay'); if(b) b.scrollTop = b.scrollHeight;"
-                            onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'media-placeholder-card\\'><div class=\\'media-placeholder-info\\'><span class=\\'media-placeholder-icon\\'>🖼️</span><span class=\\'media-placeholder-title\\'>Image</span></div><div class=\\'media-actions\\'><button type=\\'button\\' class=\\'media-btn media-btn-primary\\' onclick=\\'viewMedia(\\' + JSON.stringify(\\'${escapeHtml(waId)}\\') + \\')\\'>View Image</button></div></div>';" />
+                            onerror="this.onerror=null; this.src=''; this.closest('.media-rendered-content').innerHTML='<div style=\'padding:16px; text-align:center; color:#8696a0;\'>⚠️ Image unavailable</div>';" />
                         ${!hasCaption ? `
                         <div class="msg-meta msg-meta-floating">
                             <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
@@ -2053,34 +2067,54 @@
         // === CASE 3: Not yet loaded / No direct URL — show placeholder card with View / Store buttons ===
         } else {
             let icon = '🖼️', title = 'Image';
-            if (type === 'video')    { icon = '🎥'; title = 'Video'; }
+            if (type === 'video')         { icon = '🎥'; title = 'Video'; }
             else if (type === 'audio')    { icon = '🎵'; title = 'Audio'; }
             else if (type === 'document') { icon = '📄'; title = m.filename ? escapeHtml(m.filename) : 'Document'; }
             else if (type === 'sticker')  { icon = '🎨'; title = 'Sticker'; }
 
             const viewBtnLabel = getViewButtonLabel(type);
 
-            contentHtml = `
-                <div class="media-placeholder-card">
-                    <div class="media-placeholder-info">
-                        <span class="media-placeholder-icon">${icon}</span>
-                        <span class="${type === 'document' && m.filename ? 'media-doc-name' : 'media-placeholder-title'}">${title}</span>
-                    </div>
-                    <div class="media-actions">
-                        <button type="button" class="media-btn media-btn-primary"
-                            onclick="viewMedia('${escapeHtml(waId)}')"
-                            ${isLoadingView || isLoadingStore || !waId ? 'disabled' : ''}>
-                            ${isLoadingView ? 'Loading...' : viewBtnLabel}
-                        </button>
-                        ${waId && !isStored ? `
-                            <button type="button" class="media-btn media-btn-store"
-                                onclick="storeMedia('${escapeHtml(waId)}')"
-                                ${isLoadingStore || isLoadingView ? 'disabled' : ''}>
-                                ${isLoadingStore ? 'Storing...' : 'Store'}
-                            </button>` : (isStored ? `<span class="media-stored-badge">✓ Stored</span>` : '')
-                        }
-                    </div>
-                </div>`;
+            // If it's an image with a viewUrl, show a lazy-loading thumbnail
+            if (type === 'image' && viewUrl && waId) {
+                contentHtml = `
+                    <div class="media-rendered-content">
+                        <img src="${escapeHtml(viewUrl)}" alt="WhatsApp image" class="chat-media-img"
+                            onclick="openMediaLightbox('${escapeHtml(viewUrl)}')" title="Click to enlarge"
+                            onload="const b = document.getElementById('messageDisplay'); if(b) b.scrollTop = b.scrollHeight;"
+                            onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\'padding:12px; display:flex; flex-direction:column; align-items:center; gap:8px;\'><span style=\'font-size:32px;\'>🖼️</span><button class=\'media-btn media-btn-primary\' onclick=\'viewMedia(\"${escapeHtml(waId)}\")\'>View Image</button></div>';" />
+                        ${!hasCaption ? `
+                        <div class="msg-meta msg-meta-floating">
+                            <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
+                            ${isOut ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
+                        </div>` : `
+                        <div class="media-caption-box">
+                            <span class="media-caption-text">${escapeHtml(m.caption)}</span>
+                            <div class="msg-meta"><span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}</div>
+                        </div>`}
+                    </div>`;
+            } else {
+                contentHtml = `
+                    <div class="media-placeholder-card">
+                        <div class="media-placeholder-info">
+                            <span class="media-placeholder-icon">${icon}</span>
+                            <span class="${type === 'document' && m.filename ? 'media-doc-name' : 'media-placeholder-title'}">${title}</span>
+                        </div>
+                        <div class="media-actions">
+                            <button type="button" class="media-btn media-btn-primary"
+                                onclick="viewMedia('${escapeHtml(waId)}')"
+                                ${isLoadingView || isLoadingStore || !waId ? 'disabled' : ''}>
+                                ${isLoadingView ? 'Loading...' : viewBtnLabel}
+                            </button>
+                            ${waId && !isStored ? `
+                                <button type="button" class="media-btn media-btn-store"
+                                    onclick="storeMedia('${escapeHtml(waId)}')"
+                                    ${isLoadingStore || isLoadingView ? 'disabled' : ''}>
+                                    ${isLoadingStore ? 'Storing...' : 'Store'}
+                                </button>` : (isStored ? `<span class="media-stored-badge">✓ Stored</span>` : '')
+                            }
+                        </div>
+                    </div>`;
+            }
         }
 
         if (errorMsg) {
@@ -2122,14 +2156,26 @@
         const m = chatMessagesMap[waMessageId];
         if (!m) return;
 
+        const type = (m.type || 'image').toLowerCase();
+
+        // If already cached in memory
         if (mediaLoaded[waMessageId] && mediaLoaded[waMessageId].url) {
-            if ((m.type || '').toLowerCase() === 'document') {
-                window.open(mediaLoaded[waMessageId].url, '_blank');
+            const cachedUrl = mediaLoaded[waMessageId].url;
+            if (type === 'document') {
+                window.open(cachedUrl, '_blank');
+            } else if (type === 'image' || type === 'sticker') {
+                openMediaLightbox(cachedUrl, 'image');
+            } else if (type === 'video') {
+                openMediaLightbox(cachedUrl, 'video');
             }
             return;
         }
 
-        const type = (m.type || 'image').toLowerCase();
+        // If s3_url available, use directly for image/sticker lightbox
+        if (m.s3_url && (type === 'image' || type === 'sticker')) {
+            openMediaLightbox(m.s3_url, 'image');
+            return;
+        }
 
         // Build view URL — append Firebase fields so backend doesn't need a DB lookup
         let viewUrl = getMediaViewUrl(m);
@@ -2195,24 +2241,20 @@
                 } else {
                     window.open(blobUrl, '_blank');
                 }
+            } else if (type === 'image' || type === 'sticker') {
+                openMediaLightbox(blobUrl, 'image');
+            } else if (type === 'video') {
+                openMediaLightbox(blobUrl, 'video');
             }
 
             updateMessageMediaUI(waMessageId);
 
-            // Auto-play audio/video after loading when user clicked the play button
-            if (type === 'audio' || type === 'video') {
+            // Auto-play audio after loading when user clicked the play button
+            if (type === 'audio') {
                 const container = document.getElementById('media-content-' + waMessageId);
                 if (container) {
-                    if (type === 'audio') {
-                        const playBtn = container.querySelector('.vn-play-circle');
-                        if (playBtn) playBtn.click();
-                    } else if (type === 'video') {
-                        const mediaEl = container.querySelector('video');
-                        if (mediaEl) {
-                            mediaEl.load();
-                            mediaEl.play().catch(() => {});
-                        }
-                    }
+                    const playBtn = container.querySelector('.vn-play-circle');
+                    if (playBtn) setTimeout(() => playBtn.click(), 100);
                 }
             }
 
@@ -2634,7 +2676,8 @@
     async function submitSendMedia() {
         if (!selectedMediaFile || !activeChatId) return;
 
-        const caption = document.getElementById('mediaCaptionInput').value.trim();
+        const captionEl = document.getElementById('mediaCaptionInput');
+        const caption = captionEl ? captionEl.value.trim() : '';
         const btn = document.getElementById('mediaSendConfirmBtn');
         const icon = document.getElementById('mediaSendBtnIcon');
         const spinner = document.getElementById('mediaSendSpinner');
@@ -3161,7 +3204,14 @@
 
             resetVoiceRecordingUI();
 
+            // Send audio directly without opening the media send modal
             selectedMediaFile = audioFile;
+            // Close modal if open (it shouldn't be, but safety)
+            const modal = document.getElementById('mediaSendModal');
+            if (modal) modal.style.display = 'none';
+            // Clear caption so audio is sent without caption prompt
+            const captionInput = document.getElementById('mediaCaptionInput');
+            if (captionInput) captionInput.value = '';
             await submitSendMedia();
         };
 
