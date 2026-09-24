@@ -364,7 +364,7 @@
         .msg-media-bubble {
             padding: 3px !important;
             border-radius: 8px !important;
-            overflow: hidden;
+            overflow: visible !important;
             display: inline-flex !important;
             flex-direction: column;
             width: fit-content !important;
@@ -373,6 +373,13 @@
             max-width: 330px;
             background: var(--incoming-msg);
             box-sizing: border-box;
+        }
+
+        /* Clip inner content but not reaction triggers */
+        .msg-media-bubble .media-rendered-content,
+        .msg-media-bubble .media-container {
+            overflow: hidden;
+            border-radius: 6px;
         }
 
         .msg-out.msg-media-bubble {
@@ -830,6 +837,8 @@
             flex-direction: column;
             height: 100%;
             width: 100%;
+            overflow: hidden;
+            position: relative;
         }
 
         .modal-overlay {
@@ -912,15 +921,6 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
-        }
-
-        .active-chat-screen {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-            position: relative;
         }
 
         @media (max-width: 768px) {
@@ -2074,47 +2074,27 @@
 
             const viewBtnLabel = getViewButtonLabel(type);
 
-            // If it's an image with a viewUrl, show a lazy-loading thumbnail
-            if (type === 'image' && viewUrl && waId) {
-                contentHtml = `
-                    <div class="media-rendered-content">
-                        <img src="${escapeHtml(viewUrl)}" alt="WhatsApp image" class="chat-media-img"
-                            onclick="openMediaLightbox('${escapeHtml(viewUrl)}')" title="Click to enlarge"
-                            onload="const b = document.getElementById('messageDisplay'); if(b) b.scrollTop = b.scrollHeight;"
-                            onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\'padding:12px; display:flex; flex-direction:column; align-items:center; gap:8px;\'><span style=\'font-size:32px;\'>🖼️</span><button class=\'media-btn media-btn-primary\' onclick=\'viewMedia(\"${escapeHtml(waId)}\")\'>View Image</button></div>';" />
-                        ${!hasCaption ? `
-                        <div class="msg-meta msg-meta-floating">
-                            <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
-                            ${isOut ? `<span class="msg-status">${getTickSVG(m.status, true)}</span>` : ''}
-                        </div>` : `
-                        <div class="media-caption-box">
-                            <span class="media-caption-text">${escapeHtml(m.caption)}</span>
-                            <div class="msg-meta"><span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>${isOut ? `<span class="msg-status">${getTickSVG(m.status)}</span>` : ''}</div>
-                        </div>`}
-                    </div>`;
-            } else {
-                contentHtml = `
-                    <div class="media-placeholder-card">
-                        <div class="media-placeholder-info">
-                            <span class="media-placeholder-icon">${icon}</span>
-                            <span class="${type === 'document' && m.filename ? 'media-doc-name' : 'media-placeholder-title'}">${title}</span>
-                        </div>
-                        <div class="media-actions">
-                            <button type="button" class="media-btn media-btn-primary"
-                                onclick="viewMedia('${escapeHtml(waId)}')"
-                                ${isLoadingView || isLoadingStore || !waId ? 'disabled' : ''}>
-                                ${isLoadingView ? 'Loading...' : viewBtnLabel}
-                            </button>
-                            ${waId && !isStored ? `
-                                <button type="button" class="media-btn media-btn-store"
-                                    onclick="storeMedia('${escapeHtml(waId)}')"
-                                    ${isLoadingStore || isLoadingView ? 'disabled' : ''}>
-                                    ${isLoadingStore ? 'Storing...' : 'Store'}
-                                </button>` : (isStored ? `<span class="media-stored-badge">✓ Stored</span>` : '')
-                            }
-                        </div>
-                    </div>`;
-            }
+            contentHtml = `
+                <div class="media-placeholder-card">
+                    <div class="media-placeholder-info">
+                        <span class="media-placeholder-icon">${icon}</span>
+                        <span class="${type === 'document' && m.filename ? 'media-doc-name' : 'media-placeholder-title'}">${title}</span>
+                    </div>
+                    <div class="media-actions">
+                        <button type="button" class="media-btn media-btn-primary"
+                            onclick="viewMedia('${escapeHtml(waId)}')"
+                            ${isLoadingView || isLoadingStore || !waId ? 'disabled' : ''}>
+                            ${isLoadingView ? 'Loading...' : viewBtnLabel}
+                        </button>
+                        ${waId && !isStored ? `
+                            <button type="button" class="media-btn media-btn-store"
+                                onclick="storeMedia('${escapeHtml(waId)}')"
+                                ${isLoadingStore || isLoadingView ? 'disabled' : ''}>
+                                ${isLoadingStore ? 'Storing...' : 'Store'}
+                            </button>` : (isStored ? `<span class="media-stored-badge">✓ Stored</span>` : '')
+                        }
+                    </div>
+                </div>`;
         }
 
         if (errorMsg) {
