@@ -264,7 +264,7 @@
 
         .highlight { background-color: #ffeb3b; color: #000; }
 
-        .messages-container { flex: 1; padding: 20px 8%; overflow-y: auto; display: flex; flex-direction: column; z-index: 1; scroll-behavior: smooth; position: relative; }
+        .messages-container { flex: 1; padding: 20px 8%; overflow-y: auto; display: flex; flex-direction: column; z-index: 1; position: relative; }
 
         .date-divider {
             display: flex;
@@ -1119,12 +1119,12 @@
                 </div>
             </div>
 
-            <div class="messages-container" id="messageDisplay">
-                <!-- Chat loading overlay: starts hidden, JS shows/hides it -->
-                <div id="chatLoadingOverlay" style="display:none; position:absolute; inset:0; background:var(--chat-bg,#efeae2); z-index:10; flex-direction:column; align-items:center; justify-content:center; gap:14px;">
-                    <div class="spinner" style="width:32px; height:32px; border-width:3px;"></div>
-                    <span style="font-size:13px; color:var(--text-secondary);">Loading messages...</span>
-                </div>
+            <div class="messages-container" id="messageDisplay"></div>
+
+            <!-- Chat loading overlay: sits above messageDisplay, below header, above footer -->
+            <div id="chatLoadingOverlay" style="display:none; position:absolute; top:60px; bottom:62px; left:0; right:0; background:var(--chat-bg,#efeae2); z-index:10; flex-direction:column; align-items:center; justify-content:center; gap:14px;">
+                <div class="spinner" style="width:32px; height:32px; border-width:3px;"></div>
+                <span style="font-size:13px; color:var(--text-secondary);">Loading messages...</span>
             </div>
 
             <div class="footer">
@@ -1754,8 +1754,60 @@
         mentionTargetId = null;
     }
 
+    window.isInitialChatLoad = false;
+    window.initialChatLoadTimer = null;
+
+    function scrollChatToBottom(forceInstant = false) {
+        const box = document.getElementById('messageDisplay');
+        if (!box) return;
+
+        const prevScrollBehavior = box.style.scrollBehavior;
+        if (forceInstant) {
+            box.style.scrollBehavior = 'auto';
+        }
+
+        box.scrollTop = box.scrollHeight;
+
+        requestAnimationFrame(() => {
+            if (!box) return;
+            box.scrollTop = box.scrollHeight;
+            setTimeout(() => {
+                if (box && (window.isInitialChatLoad || !forceInstant)) box.scrollTop = box.scrollHeight;
+            }, 50);
+            setTimeout(() => {
+                if (box && (window.isInitialChatLoad || !forceInstant)) box.scrollTop = box.scrollHeight;
+            }, 150);
+            setTimeout(() => {
+                if (box && (window.isInitialChatLoad || !forceInstant)) box.scrollTop = box.scrollHeight;
+            }, 300);
+            setTimeout(() => {
+                if (box) {
+                    if (window.isInitialChatLoad || !forceInstant) box.scrollTop = box.scrollHeight;
+                    if (forceInstant) box.style.scrollBehavior = prevScrollBehavior || '';
+                }
+            }, 600);
+        });
+    }
+
+    // Attach user scroll listeners to cancel initial auto-scroll if user manually scrolls up
+    document.addEventListener('DOMContentLoaded', () => {
+        const msgBox = document.getElementById('messageDisplay');
+        if (msgBox) {
+            const cancelInitialScroll = () => {
+                window.isInitialChatLoad = false;
+            };
+            msgBox.addEventListener('wheel', cancelInitialScroll, { passive: true });
+            msgBox.addEventListener('touchmove', cancelInitialScroll, { passive: true });
+        }
+    });
+
     function openChat(id, name) {
         activeChatId = id;
+        window.isInitialChatLoad = true;
+        clearTimeout(window.initialChatLoadTimer);
+        window.initialChatLoadTimer = setTimeout(() => {
+            window.isInitialChatLoad = false;
+        }, 3000);
         
         document.getElementById('defaultScreen').style.display = 'none';
         document.getElementById('activeChatScreen').style.display = 'flex';
@@ -1775,9 +1827,7 @@
         const msgBox = document.getElementById('messageDisplay');
         const chatLoader = document.getElementById('chatLoadingOverlay');
         if (msgBox) {
-            Array.from(msgBox.children).forEach(child => {
-                if (child.id !== 'chatLoadingOverlay') child.remove();
-            });
+            msgBox.innerHTML = '';
         }
         if (chatLoader) chatLoader.style.display = 'flex';
 
@@ -1883,7 +1933,7 @@
                 
                 const box = document.getElementById('messageDisplay');
                 box.innerHTML = html;
-                box.scrollTop = box.scrollHeight;
+                scrollChatToBottom(true);
                 // Hide chat loader after messages render
                 const loader = document.getElementById('chatLoadingOverlay');
                 if (loader) loader.style.display = 'none';
@@ -2107,7 +2157,8 @@
                         <div class="media-img-wrapper">
                             <img src="${escapeHtml(srcUrl)}" alt="WhatsApp image" class="chat-media-img"
                                 onclick="openMediaLightbox('${escapeHtml(srcUrl)}')" title="Click to view full screen"
-                                onerror="this.onerror=null; this.src=''; this.closest('.media-rendered-content').innerHTML='<div style=\\'padding:16px; text-align:center; color:#8696a0;\\'>⚠️ Image unavailable</div>';" />
+                                onload="if (window.isInitialChatLoad) scrollChatToBottom(true);"
+                                onerror="this.onerror=null; this.src=''; this.closest('.media-rendered-content').innerHTML='<div style=\'padding:16px; text-align:center; color:#8696a0;\'>⚠️ Image unavailable</div>';" />
                             ${(!showFooterBar) ? `
                             <div class="msg-meta msg-meta-floating">
                                 <span class="msg-time">${formatTime(parseDate(m.timestamp))}</span>
@@ -2133,7 +2184,8 @@
                 contentHtml = `
                     <div class="media-rendered-content">
                         <div class="media-video-container">
-                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(srcUrl)}">
+                            <video controls preload="metadata" playsinline class="chat-media-video" src="${escapeHtml(srcUrl)}"
+                                onloadedmetadata="if (window.isInitialChatLoad) scrollChatToBottom(true);">
                                 <source src="${escapeHtml(srcUrl)}" ${m.mime_type ? `type="${escapeHtml(m.mime_type)}"` : ''}>
                                 Your browser does not support HTML video.
                             </video>
@@ -2200,7 +2252,8 @@
             } else if (type === 'sticker') {
                 contentHtml = `
                     <div class="media-rendered-content">
-                        <img src="${escapeHtml(srcUrl)}" alt="WhatsApp sticker" class="chat-media-sticker" />
+                        <img src="${escapeHtml(srcUrl)}" alt="WhatsApp sticker" class="chat-media-sticker"
+                            onload="if (window.isInitialChatLoad) scrollChatToBottom(true);" />
                         <div class="media-store-bar" style="padding: 2px 4px;">
                             <div class="media-store-action">${storeActionHtml}</div>
                             <div class="msg-meta media-footer-meta">
@@ -2299,6 +2352,7 @@
 
     async function viewMedia(waMessageId) {
         if (!waMessageId) return;
+        window.isInitialChatLoad = false;
         const m = chatMessagesMap[waMessageId];
         if (!m) return;
 
