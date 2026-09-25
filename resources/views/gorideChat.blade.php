@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -640,15 +640,15 @@
         .lightbox-btn:hover { background: var(--accent-green); transform: scale(1.1); }
 
         /* Send/Mic Buttons */
-        .send-btn-round, #micBtn, #sendBtn {
+        .send-btn-round, #sendBtn {
             width: 44px !important; height: 44px !important; min-width: 44px !important; min-height: 44px !important;
             border-radius: 50% !important; background: var(--accent-green) !important;
             color: #ffffff !important; border: none !important; align-items: center !important; justify-content: center !important;
             cursor: pointer !important; transition: background 0.15s, transform 0.15s !important; flex-shrink: 0 !important;
             box-shadow: 0 2px 8px rgba(0,168,132,0.4) !important;
         }
-        .send-btn-round:hover, #micBtn:hover, #sendBtn:hover { background: var(--accent-green-dark) !important; transform: scale(1.08) !important; }
-        #micBtn svg, #sendBtn svg { color: #ffffff !important; fill: #ffffff !important; }
+        .send-btn-round:hover, #sendBtn:hover { background: var(--accent-green-dark) !important; transform: scale(1.08) !important; }
+        #sendBtn svg { color: #ffffff !important; fill: #ffffff !important; }
 
         /* Footer / Input Bar */
         .footer {
@@ -676,30 +676,6 @@
             transition: background 0.15s, color 0.15s;
         }
         .attach-btn-icon:hover { background: rgba(11,20,26,0.07); color: #111b21; }
-
-        /* Voice Recording Bar */
-        .voice-record-bar {
-            display: none; flex: 1; align-items: center; justify-content: space-between;
-            background: #ffffff; border-radius: 10px; padding: 10px 16px; gap: 14px;
-            box-shadow: var(--shadow-sm); animation: slideUpFadeIn 0.15s ease-out;
-        }
-
-        .voice-rec-dot { width: 11px; height: 11px; border-radius: 50%; background: #ef4444; display: inline-block; animation: voicePulse 1s infinite alternate; }
-        @keyframes voicePulse { 0% { transform: scale(0.85); opacity: 0.45; } 100% { transform: scale(1.25); opacity: 1; } }
-        .voice-rec-timer { font-size: 14.5px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-
-        .voice-rec-waves { display: flex; align-items: center; gap: 3.5px; flex: 1; max-width: 120px; justify-content: center; height: 22px; }
-        .voice-rec-waves span { width: 3px; height: 14px; background: #8696a0; border-radius: 2px; animation: waveBounce 1.2s infinite ease-in-out; }
-        .voice-rec-waves span:nth-child(2) { animation-delay: 0.15s; height: 18px; }
-        .voice-rec-waves span:nth-child(3) { animation-delay: 0.3s; height: 12px; }
-        .voice-rec-waves span:nth-child(4) { animation-delay: 0.45s; height: 22px; }
-        .voice-rec-waves span:nth-child(5) { animation-delay: 0.6s; height: 16px; }
-        .voice-rec-waves span:nth-child(6) { animation-delay: 0.75s; height: 20px; }
-        .voice-rec-waves span:nth-child(7) { animation-delay: 0.9s; height: 11px; }
-        @keyframes waveBounce { 0%, 100% { transform: scaleY(0.4); opacity: 0.35; } 50% { transform: scaleY(1); opacity: 1; background: var(--accent-green); } }
-
-        .voice-rec-cancel-btn { background: none; border: none; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 50%; transition: background 0.15s; }
-        .voice-rec-cancel-btn:hover { background: rgba(239,68,68,0.1); }
 
         /* Default Screen */
         .default-screen {
@@ -989,24 +965,9 @@
 
                 <input type="file" id="mediaFileInput" style="display:none;" onchange="handleMediaSelected(this)">
 
-                <div id="voiceRecordBar" class="voice-record-bar">
-                    <span class="voice-rec-dot"></span>
-                    <span class="voice-rec-timer" id="voiceRecTimer">0:00</span>
-                    <div class="voice-rec-waves">
-                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-                    </div>
-                    <button type="button" class="voice-rec-cancel-btn" onclick="cancelVoiceRecording()" title="Cancel recording">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                    </button>
-                </div>
-
                 <textarea class="input-box" id="messageInput" placeholder="Type a message" rows="1" style="resize: none; overflow-y: auto; max-height: 120px; font-family: inherit;"></textarea>
 
-                <button class="send-btn-round" id="micBtn" onclick="startVoiceRecording()" title="Record voice note" style="display:none;">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-                </button>
-
-                <button class="send-btn-round" id="sendBtn" onclick="handleSendButtonClick()" title="Send" style="display:flex;">
+                <button class="send-btn-round" id="sendBtn" onclick="sendMessage()" title="Send" style="display:flex;">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
                 </button>
             </div>
@@ -2981,12 +2942,7 @@
         box.scrollTop = box.scrollHeight;
         
         input.value = '';
-        input.style.height = 'auto'; 
-
-        const sendBtn = document.getElementById('sendBtn');
-        const micBtn = document.getElementById('micBtn');
-        if (sendBtn) sendBtn.style.display = 'none';
-        if (micBtn) micBtn.style.display = 'flex';
+        input.style.height = 'auto';
         
         try {
             await fetch('send-message', {
@@ -3069,7 +3025,6 @@
     }
 
     function goBack() { 
-        cancelVoiceRecording();
         document.getElementById('appContainer').classList.remove('show-chat'); 
         activeChatId = null; 
         document.getElementById('defaultScreen').style.display = 'flex';
@@ -3088,177 +3043,7 @@
     msgInput.addEventListener("input", function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
-        
-        const sendBtn = document.getElementById('sendBtn');
-        const hasText = this.value.trim().length > 0;
-        if (sendBtn) {
-            sendBtn.style.display = hasText ? 'flex' : 'flex'; // Always show send
-        }
     });
-
-    // ==========================================
-    // WHATSAPP VOICE RECORDING INTEGRATION
-    // ==========================================
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let voiceRecTimerInterval = null;
-    let voiceRecSeconds = 0;
-    let voiceStream = null;
-
-    async function startVoiceRecording() {
-        if (!activeChatId) {
-            alert("Please select a chat first.");
-            return;
-        }
-
-        try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert("Audio recording is not supported in this browser or requires a secure context (HTTPS / localhost).");
-                return;
-            }
-
-            voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            let options = {};
-            if (typeof MediaRecorder !== 'undefined') {
-                if (MediaRecorder.isTypeSupported('audio/mp4')) {
-                    options = { mimeType: 'audio/mp4' };
-                } else if (MediaRecorder.isTypeSupported('audio/aac')) {
-                    options = { mimeType: 'audio/aac' };
-                } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
-                    options = { mimeType: 'audio/ogg;codecs=opus' };
-                } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-                    options = { mimeType: 'audio/webm;codecs=opus' };
-                }
-            }
-
-            mediaRecorder = new MediaRecorder(voiceStream, options);
-            audioChunks = [];
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data && event.data.size > 0) {
-                    audioChunks.push(event.data);
-                }
-            };
-
-            mediaRecorder.start(100);
-
-            // Show recording UI, hide input & attach
-            const inputEl = document.getElementById('messageInput');
-            const attachWrapper = document.getElementById('footerAttachWrapper');
-            const templateBtn = document.getElementById('footerTemplateBtn');
-            const recBar = document.getElementById('voiceRecordBar');
-            const sendBtn = document.getElementById('sendBtn');
-            const micBtn = document.getElementById('micBtn');
-
-            if (inputEl) inputEl.style.display = 'none';
-            if (attachWrapper) attachWrapper.style.display = 'none';
-            if (templateBtn) templateBtn.style.display = 'none';
-            if (recBar) recBar.style.display = 'flex';
-            if (micBtn) micBtn.style.display = 'none';
-            if (sendBtn) sendBtn.style.display = 'flex';
-
-            // Start recording timer
-            voiceRecSeconds = 0;
-            document.getElementById('voiceRecTimer').innerText = '0:00';
-            clearInterval(voiceRecTimerInterval);
-            voiceRecTimerInterval = setInterval(() => {
-                voiceRecSeconds++;
-                const mins = Math.floor(voiceRecSeconds / 60);
-                const secs = voiceRecSeconds % 60;
-                document.getElementById('voiceRecTimer').innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-            }, 1000);
-
-        } catch (err) {
-            console.error("Microphone access error:", err);
-            alert("Could not access microphone: " + (err.message || "Please check browser mic permissions"));
-            resetVoiceRecordingUI();
-        }
-    }
-
-    function cancelVoiceRecording() {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.onstop = null; // Discard
-            mediaRecorder.stop();
-        }
-        stopVoiceStream();
-        resetVoiceRecordingUI();
-    }
-
-    function stopVoiceStream() {
-        if (voiceStream) {
-            voiceStream.getTracks().forEach(track => track.stop());
-            voiceStream = null;
-        }
-        clearInterval(voiceRecTimerInterval);
-    }
-
-    function resetVoiceRecordingUI() {
-        stopVoiceStream();
-        audioChunks = [];
-        const inputEl = document.getElementById('messageInput');
-        const attachWrapper = document.getElementById('footerAttachWrapper');
-        const templateBtn = document.getElementById('footerTemplateBtn');
-        const recBar = document.getElementById('voiceRecordBar');
-        const sendBtn = document.getElementById('sendBtn');
-        const micBtn = document.getElementById('micBtn');
-
-        if (inputEl) inputEl.style.display = 'block';
-        if (attachWrapper) attachWrapper.style.display = 'block';
-        if (templateBtn) templateBtn.style.display = 'flex';
-        if (recBar) recBar.style.display = 'none';
-
-        const hasText = inputEl ? inputEl.value.trim().length > 0 : false;
-        if (sendBtn) sendBtn.style.display = hasText ? 'flex' : 'none';
-        if (micBtn) micBtn.style.display = hasText ? 'none' : 'flex';
-    }
-
-    async function finishAndSendVoiceRecording() {
-        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-            resetVoiceRecordingUI();
-            return;
-        }
-
-        const recordedSeconds = voiceRecSeconds;
-
-        mediaRecorder.onstop = async () => {
-            stopVoiceStream();
-
-            if (audioChunks.length === 0 || recordedSeconds < 1) {
-                resetVoiceRecordingUI();
-                return;
-            }
-
-            const mime = mediaRecorder.mimeType || 'audio/mp4';
-            const cleanMime = mime.split(';')[0];
-            const ext = cleanMime.includes('mp4') || cleanMime.includes('m4a') || cleanMime.includes('aac') ? 'm4a' : (cleanMime.includes('ogg') ? 'ogg' : 'webm');
-
-            const audioBlob = new Blob(audioChunks, { type: cleanMime });
-            const audioFile = new File([audioBlob], `voice_note_${Date.now()}.${ext}`, { type: cleanMime });
-
-            resetVoiceRecordingUI();
-
-            // Send audio directly without opening the media send modal
-            selectedMediaFile = audioFile;
-            // Close modal if open (it shouldn't be, but safety)
-            const modal = document.getElementById('mediaSendModal');
-            if (modal) modal.style.display = 'none';
-            // Clear caption so audio is sent without caption prompt
-            const captionInput = document.getElementById('mediaCaptionInput');
-            if (captionInput) captionInput.value = '';
-            await submitSendMedia();
-        };
-
-        mediaRecorder.stop();
-    }
-
-    function handleSendButtonClick() {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            finishAndSendVoiceRecording();
-        } else {
-            sendMessage();
-        }
-    }
     async function syncTemplates() {
         const syncIconBtn = document.getElementById('syncIconBtn');
         const syncStatus = document.getElementById('syncStatus');
